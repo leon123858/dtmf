@@ -3,12 +3,6 @@
 
 import { createTripAction } from './lib/tripActions'; // 導入 Server Action
 
-// ---
-export const metadata = {
-	title: '旅遊分帳應用 | 輕鬆建立旅程',
-	description: '輕鬆、公平地分攤旅途中的每一筆花費。快速建立新旅程並開始分帳。',
-};
-
 export default async function HomePage() {
 	// Server Component 不會有 useState, useEffect, useRouter 等 Hook
 	// 頁面內容會在伺服器端完全渲染，有利於 SEO
