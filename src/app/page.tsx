@@ -1,25 +1,17 @@
-'use client'; // 因為有 state 和事件處理
+// app/page.js - 這將是我們的首頁 Server Component
+// 無需 'use client' 指令，因為它不再處理客戶端狀態或事件
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation'; // 使用 Next.js 的 router
-import { useTrips } from '@/app/context/TripProvider';
+import { createTripAction } from './lib/tripActions'; // 導入 Server Action
 
-export default function HomePage() {
-	const [tripName, setTripName] = useState('');
-	const router = useRouter();
-	const { createTrip } = useTrips();
+// ---
+export const metadata = {
+	title: '旅遊分帳應用 | 輕鬆建立旅程',
+	description: '輕鬆、公平地分攤旅途中的每一筆花費。快速建立新旅程並開始分帳。',
+};
 
-	useEffect(() => {
-		document.title = '旅遊分帳應用 | 輕鬆建立旅程';
-	}, []);
-
-	const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-		e.preventDefault();
-		if (tripName.trim()) {
-			const newTrip = createTrip(tripName.trim());
-			router.push(`/trip/${newTrip.id}`); // 導航到新的旅程頁面
-		}
-	};
+export default async function HomePage() {
+	// Server Component 不會有 useState, useEffect, useRouter 等 Hook
+	// 頁面內容會在伺服器端完全渲染，有利於 SEO
 
 	return (
 		<div className='bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4'>
@@ -32,7 +24,8 @@ export default function HomePage() {
 				</p>
 
 				<form
-					onSubmit={handleSubmit}
+					// 直接將 Server Action 函數賦給 form 的 action 屬性
+					action={createTripAction}
 					className='bg-white p-8 rounded-xl shadow-lg'
 				>
 					<h2 className='text-2xl font-semibold text-gray-700 mb-6'>
@@ -40,8 +33,7 @@ export default function HomePage() {
 					</h2>
 					<input
 						type='text'
-						value={tripName}
-						onChange={(e) => setTripName(e.target.value)}
+						name='tripName' // **關鍵：設置 name 屬性，Server Action 會通過這個 name 獲取值**
 						placeholder='例如：2024 日本關西之旅'
 						className='w-full p-3 border border-gray-300 rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-blue-500'
 						required
