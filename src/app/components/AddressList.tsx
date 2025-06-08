@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useContext } from 'react';
-import { SingleTripContext } from '@/app/trip/[tripId]/page';
+import { SingleTripContext } from '@/app/context/SingleTripProvider';
 
 export const AddressList = () => {
 	const context = useContext(SingleTripContext);
@@ -9,11 +9,11 @@ export const AddressList = () => {
 	const [isAdding, setIsAdding] = useState(false);
 
 	if (!context) return null;
-	const { trip, api } = context;
+	const { trip } = context;
 
 	const handleAddAddress = () => {
 		if (newAddress.trim()) {
-			api.createAddress(newAddress.trim());
+			// api.createAddress(newAddress.trim());
 			setNewAddress('');
 			setIsAdding(false);
 		}
@@ -30,7 +30,7 @@ export const AddressList = () => {
 					>
 						<span className='text-gray-700 font-mono'>{address}</span>
 						<button
-							onClick={() => api.deleteAddress(address)}
+							onClick={() => {}}
 							className='text-red-400 hover:text-red-600 font-bold'
 						>
 							移除

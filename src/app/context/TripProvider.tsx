@@ -4,7 +4,6 @@ import React, { createContext, useState, ReactNode, useContext } from 'react';
 import { Trip, TripContextType } from '@/app/lib/types';
 import { MOCK_TRIP_STORE } from '@/app/lib/data';
 
-// 建立 Context，並給予初始值 null
 export const TripContext = createContext<TripContextType | null>(null);
 
 // 建立一個 Hook，方便元件直接使用 Context，不用再寫 useContext(TripContext)

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useContext } from 'react';
-import { SingleTripContext } from '@/app/trip/[tripId]/page';
+import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { hexToSimple } from '@/app/lib/data';
 import { Record } from '@/app/lib/types';
 
@@ -12,7 +12,7 @@ interface RecordListProps {
 export const RecordList: React.FC<RecordListProps> = ({ onEdit }) => {
 	const context = useContext(SingleTripContext);
 	if (!context) return null;
-	const { trip, api } = context;
+	const { trip } = context;
 
 	if (trip.records.length === 0) {
 		return (
@@ -47,7 +47,7 @@ export const RecordList: React.FC<RecordListProps> = ({ onEdit }) => {
 							✏️
 						</button>
 						<button
-							onClick={() => api.removeRecord(record.id)}
+							onClick={() => {}}
 							className='text-red-500 hover:text-red-700 p-2'
 						>
 							🗑️

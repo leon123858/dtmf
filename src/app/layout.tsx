@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import { TripProvider } from './context/TripProvider'; // 引入 Provider
+import { ApolloWrapper } from './lib/tripApi/wrapper';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -18,11 +18,7 @@ export default function RootLayout({
 	return (
 		<html lang='zh-TW'>
 			<body className={inter.className}>
-				<TripProvider>
-					{' '}
-					{/* 在這裡包裹 */}
-					{children}
-				</TripProvider>
+				<ApolloWrapper>{children}</ApolloWrapper>
 			</body>
 		</html>
 	);

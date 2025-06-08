@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useContext } from 'react';
-import { SingleTripContext } from '@/app/trip/[tripId]/page';
+import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { Record } from '@/app/lib/types';
 import { hexToSimple } from '@/app/lib/data';
 
@@ -17,7 +17,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 	const context = useContext(SingleTripContext);
 
 	if (!context) return null;
-	const { trip, api } = context;
+	const { trip } = context;
 
 	const [name, setName] = useState(record ? record.name : '');
 	const [amount, setAmount] = useState(record ? String(record.amount) : '');
@@ -49,19 +49,19 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 			return;
 		}
 
-		const newRecordData = {
-			name,
-			amount: finalAmount,
-			prePayAddress,
-			shouldPayAddress,
-		};
+		// const newRecordData = {
+		// 	name,
+		// 	amount: finalAmount,
+		// 	prePayAddress,
+		// 	shouldPayAddress,
+		// };
 
 		if (record) {
 			// Editing existing record
-			api.updateRecord(record.id, newRecordData);
+			// api.updateRecord(record.id, newRecordData);
 		} else {
 			// Creating new record
-			api.createRecord(newRecordData);
+			// api.createRecord(newRecordData);
 		}
 		onClose();
 	};

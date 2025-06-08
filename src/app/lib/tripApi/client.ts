@@ -1,51 +1,199 @@
-import { ApolloClient, InMemoryCache, createHttpLink } from '@apollo/client';
-import { setContext } from '@apollo/client/link/context';
-import { WebSocketLink } from '@apollo/client/link/ws';
-import { split } from '@apollo/client';
-import { getMainDefinition } from '@apollo/client/utilities';
+import {
+	useQuery,
+	useMutation,
+	useSubscription,
+	ApolloQueryResult,
+	MutationTuple,
+	SubscriptionResult,
+} from '@apollo/client';
+import { GET_TRIP } from './query';
+import {
+	CREATE_TRIP,
+	UPDATE_TRIP,
+	CREATE_RECORD,
+	UPDATE_RECORD,
+	REMOVE_RECORD,
+	CREATE_ADDRESS,
+	DELETE_ADDRESS,
+} from './mutation';
+import {
+	SUB_RECORD_CREATE,
+	SUB_RECORD_DELETE,
+	SUB_RECORD_UPDATE,
+	SUB_ADDRESS_CREATE,
+	SUB_ADDRESS_DELETE,
+} from './subscription';
+import {
+	ID,
+	Trip,
+	TripQueryVariables,
+	TripQueryData,
+	CreateTripMutationVariables,
+	CreateTripMutationData,
+	UpdateTripMutationVariables,
+	UpdateTripMutationData,
+	CreateRecordMutationVariables,
+	CreateRecordMutationData,
+	UpdateRecordMutationVariables,
+	UpdateRecordMutationData,
+	RemoveRecordMutationVariables,
+	RemoveRecordMutationData,
+	CreateAddressMutationVariables,
+	CreateAddressMutationData,
+	DeleteAddressMutationVariables,
+	DeleteAddressMutationData,
+	SubRecordCreateSubscriptionVariables,
+	SubRecordCreateSubscriptionData,
+	SubRecordDeleteSubscriptionVariables,
+	SubRecordDeleteSubscriptionData,
+	SubRecordUpdateSubscriptionVariables,
+	SubRecordUpdateSubscriptionData,
+	SubAddressCreateSubscriptionVariables,
+	SubAddressCreateSubscriptionData,
+	SubAddressDeleteSubscriptionVariables,
+	SubAddressDeleteSubscriptionData,
+} from './types';
 
-// HTTP 連接
-const httpLink = createHttpLink({
-	uri: 'http://localhost:8080/query', // 請替換成你的 GraphQL 後端 URI
-});
+// 定義一個包含所有 GraphQL 操作的物件類型
+interface TripGraphQLClient {
+	queries: {
+		useTrip: (tripId: ID) => {
+			data: Trip | null | undefined;
+			loading: boolean;
+			error: ApolloQueryResult<TripQueryData>['error'];
+			refetch: (
+				variables?: Partial<TripQueryVariables> | undefined
+			) => Promise<ApolloQueryResult<TripQueryData>>;
+		};
+	};
+	mutations: {
+		useCreateTrip: () => MutationTuple<
+			CreateTripMutationData,
+			CreateTripMutationVariables
+		>;
+		useUpdateTrip: () => MutationTuple<
+			UpdateTripMutationData,
+			UpdateTripMutationVariables
+		>;
+		useCreateRecord: () => MutationTuple<
+			CreateRecordMutationData,
+			CreateRecordMutationVariables
+		>;
+		useUpdateRecord: () => MutationTuple<
+			UpdateRecordMutationData,
+			UpdateRecordMutationVariables
+		>;
+		useRemoveRecord: () => MutationTuple<
+			RemoveRecordMutationData,
+			RemoveRecordMutationVariables
+		>;
+		useCreateAddress: () => MutationTuple<
+			CreateAddressMutationData,
+			CreateAddressMutationVariables
+		>;
+		useDeleteAddress: () => MutationTuple<
+			DeleteAddressMutationData,
+			DeleteAddressMutationVariables
+		>;
+	};
+	subscriptions: {
+		useSubRecordCreate: (
+			tripId: ID
+		) => SubscriptionResult<SubRecordCreateSubscriptionData>;
+		useSubRecordDelete: (
+			tripId: ID
+		) => SubscriptionResult<SubRecordDeleteSubscriptionData>;
+		useSubRecordUpdate: (
+			tripId: ID
+		) => SubscriptionResult<SubRecordUpdateSubscriptionData>;
+		useSubAddressCreate: (
+			tripId: ID
+		) => SubscriptionResult<SubAddressCreateSubscriptionData>;
+		useSubAddressDelete: (
+			tripId: ID
+		) => SubscriptionResult<SubAddressDeleteSubscriptionData>;
+	};
+}
 
-// WebSocket 連接 (用於 Subscription)
-const wsLink = new WebSocketLink({
-	uri: 'ws://localhost:8080/query', // 請替換成你的 GraphQL 後端 WebSocket URI
-	options: {
-		reconnect: true,
-	},
-});
-
-// Auth Link (如果需要身份驗證)
-const authLink = setContext((_, { headers }) => {
-	// 從 localStorage 或其他地方獲取 token
-	const token = localStorage.getItem('token');
+export const useGraphQLClient = (): TripGraphQLClient => {
 	return {
-		headers: {
-			...headers,
-			authorization: token ? `Bearer ${token}` : '',
+		queries: {
+			useTrip: (tripId: ID) => {
+				const { loading, error, data, refetch } = useQuery<
+					TripQueryData,
+					TripQueryVariables
+				>(GET_TRIP, {
+					variables: { tripId },
+				});
+				return { data: data?.trip, loading, error, refetch };
+			},
+		},
+		mutations: {
+			useCreateTrip: () =>
+				useMutation<CreateTripMutationData, CreateTripMutationVariables>(
+					CREATE_TRIP
+				),
+			useUpdateTrip: () =>
+				useMutation<UpdateTripMutationData, UpdateTripMutationVariables>(
+					UPDATE_TRIP
+				),
+			useCreateRecord: () =>
+				useMutation<CreateRecordMutationData, CreateRecordMutationVariables>(
+					CREATE_RECORD
+				),
+			useUpdateRecord: () =>
+				useMutation<UpdateRecordMutationData, UpdateRecordMutationVariables>(
+					UPDATE_RECORD
+				),
+			useRemoveRecord: () =>
+				useMutation<RemoveRecordMutationData, RemoveRecordMutationVariables>(
+					REMOVE_RECORD
+				),
+			useCreateAddress: () =>
+				useMutation<CreateAddressMutationData, CreateAddressMutationVariables>(
+					CREATE_ADDRESS
+				),
+			useDeleteAddress: () =>
+				useMutation<DeleteAddressMutationData, DeleteAddressMutationVariables>(
+					DELETE_ADDRESS
+				),
+		},
+		subscriptions: {
+			useSubRecordCreate: (tripId: ID) =>
+				useSubscription<
+					SubRecordCreateSubscriptionData,
+					SubRecordCreateSubscriptionVariables
+				>(SUB_RECORD_CREATE, {
+					variables: { tripId },
+				}),
+			useSubRecordDelete: (tripId: ID) =>
+				useSubscription<
+					SubRecordDeleteSubscriptionData,
+					SubRecordDeleteSubscriptionVariables
+				>(SUB_RECORD_DELETE, {
+					variables: { tripId },
+				}),
+			useSubRecordUpdate: (tripId: ID) =>
+				useSubscription<
+					SubRecordUpdateSubscriptionData,
+					SubRecordUpdateSubscriptionVariables
+				>(SUB_RECORD_UPDATE, {
+					variables: { tripId },
+				}),
+			useSubAddressCreate: (tripId: ID) =>
+				useSubscription<
+					SubAddressCreateSubscriptionData,
+					SubAddressCreateSubscriptionVariables
+				>(SUB_ADDRESS_CREATE, {
+					variables: { tripId },
+				}),
+			useSubAddressDelete: (tripId: ID) =>
+				useSubscription<
+					SubAddressDeleteSubscriptionData,
+					SubAddressDeleteSubscriptionVariables
+				>(SUB_ADDRESS_DELETE, {
+					variables: { tripId },
+				}),
 		},
 	};
-});
-
-// 使用 split 函數將操作路由到指定的 link
-// operation 是查詢 (query) 還是訂閱 (subscription)
-const splitLink = split(
-	({ query }) => {
-		const definition = getMainDefinition(query);
-		return (
-			definition.kind === 'OperationDefinition' &&
-			definition.operation === 'subscription'
-		);
-	},
-	wsLink, // 對於訂閱使用 WebSocketLink
-	authLink.concat(httpLink) // 對於查詢和 mutation 使用 HttpLink (帶 authLink)
-);
-
-const client = new ApolloClient({
-	link: splitLink,
-	cache: new InMemoryCache(),
-});
-
-export default client;
+};

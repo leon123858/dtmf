@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useContext } from 'react';
-import { SingleTripContext } from '@/app/trip/[tripId]/page';
+import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { hexToSimple } from '@/app/lib/data';
 
 export const MoneyShare = () => {

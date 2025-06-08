@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useTrips } from '@/app/context/TripProvider';
+import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { Trip, Record as RecordType } from '@/app/lib/types';
+import { useGraphQLClient } from '@/app/lib/tripApi/client';
 
 // 引入拆分的元件
 import { Header } from '@/app/components/Header';
@@ -13,135 +14,46 @@ import { MoneyShare } from '@/app/components/MoneyShare';
 import { AddressList } from '@/app/components/AddressList';
 import { RecordModal } from '@/app/components/RecordModal';
 
-// 建立一個新的 Context 專門給單一旅程頁面使用
-// 這樣就不用在每個子元件都傳遞 trip 和 api
-interface SingleTripContextType {
-	trip: Trip;
-	api: {
-		createRecord: (newRecord: Omit<RecordType, 'id'>) => void;
-		updateRecord: (
-			recordId: string,
-			updatedRecord: Partial<Omit<RecordType, 'id'>>
-		) => void;
-		removeRecord: (recordId: string) => void;
-		createAddress: (address: string) => void;
-		deleteAddress: (address: string) => void;
-	};
-}
-export const SingleTripContext =
-	React.createContext<SingleTripContextType | null>(null);
-
 export default function TripPage() {
 	const router = useRouter();
 	const params = useParams();
 	const tripId = params.tripId as string;
 
-	const { getTripById, updateTrip: updateGlobalTrip } = useTrips();
+	const {
+		queries: { useTrip },
+		mutations: {
+			// useCreateRecord,
+			// useUpdateRecord,
+			// useRemoveRecord,
+			// useCreateAddress,
+			// useDeleteAddress,
+		},
+	} = useGraphQLClient();
+
+	const {
+		data: tripData,
+		loading: tripLoading,
+		error: tripError,
+		// refetch: refetchTrip,
+	} = useTrip(tripId);
+
+	// const [createRecord, createRecordInfo] = useCreateRecord();
+	// const [updateRecord, updateRecordInfo] = useUpdateRecord();
+	// const [removeRecord, removeRecordInfo] = useRemoveRecord();
+	// const [createAddress, createAddressInfo] = useCreateAddress();
+	// const [deleteAddress, deleteAddressInfo] = useDeleteAddress();
 
 	// 將旅程狀態存在本地，以便編輯
-	const [trip, setTrip] = useState<Trip | null>(null);
-	const [activeTab, setActiveTab] = useState('records'); // 'records', 'share', 'members'
+	const [activeTab, setActiveTab] = useState('records');
 	const [showAddRecordModal, setShowAddRecordModal] = useState(false);
 	const [editingRecord, setEditingRecord] = useState<RecordType | null>(null);
 
-	// 從全域狀態初始化本地狀態
-	useEffect(() => {
-		const tripData = getTripById(tripId);
-		if (tripData) {
-			setTrip(tripData);
-		}
-	}, [tripId, getTripById]);
-
-	// 當本地 trip 狀態更新時，同步回全域狀態
-	useEffect(() => {
-		if (trip) {
-			updateGlobalTrip(trip.id, trip);
-		}
-	}, [trip, updateGlobalTrip]);
-
 	// 更新網頁標題
 	useEffect(() => {
-		if (trip) {
-			document.title = `${trip.name} | 旅遊分帳`;
+		if (tripData) {
+			document.title = `${tripData.name} | 旅遊分帳`;
 		}
-	}, [trip]);
-
-	// API 函式 (類似原本的 useMemo)
-	const api = useMemo(
-		() => ({
-			createRecord: (newRecord: Omit<RecordType, 'id'>) => {
-				setTrip((prevTrip) =>
-					prevTrip
-						? {
-								...prevTrip,
-								records: [
-									...prevTrip.records,
-									{ ...newRecord, id: `rec-${Date.now()}` },
-								],
-						  }
-						: null
-				);
-			},
-			updateRecord: (
-				recordId: string,
-				updatedRecord: Partial<Omit<RecordType, 'id'>>
-			) => {
-				setTrip((prevTrip) =>
-					prevTrip
-						? {
-								...prevTrip,
-								records: prevTrip.records.map((r) =>
-									r.id === recordId ? { ...r, ...updatedRecord } : r
-								),
-						  }
-						: null
-				);
-			},
-			removeRecord: (recordId: string) => {
-				setTrip((prevTrip) =>
-					prevTrip
-						? {
-								...prevTrip,
-								records: prevTrip.records.filter((r) => r.id !== recordId),
-						  }
-						: null
-				);
-			},
-			createAddress: (address: string) => {
-				if (trip?.addressList.includes(address)) {
-					alert('此地址已存在！');
-					return;
-				}
-				setTrip((prevTrip) =>
-					prevTrip
-						? {
-								...prevTrip,
-								addressList: [...prevTrip.addressList, address],
-						  }
-						: null
-				);
-			},
-			deleteAddress: (address: string) => {
-				const isAddressInvolved = trip?.records.some(
-					(r) =>
-						r.prePayAddress === address || r.shouldPayAddress.includes(address)
-				);
-				if (isAddressInvolved) {
-					alert('無法刪除！此成員已參與帳目，請先移除相關帳目。');
-					return;
-				}
-				setTrip((prevTrip) =>
-					prevTrip
-						? {
-								...prevTrip,
-								addressList: prevTrip.addressList.filter((a) => a !== address),
-						  }
-						: null
-				);
-			},
-		}),
-		[trip]
-	);
+	}, [tripData]);
 
 	const openAddModal = () => {
 		setEditingRecord(null);
@@ -158,7 +70,7 @@ export default function TripPage() {
 		setEditingRecord(null);
 	};
 
-	if (!trip) {
+	if (!tripData && tripError) {
 		return (
 			<div className='bg-gray-900 text-white h-screen flex flex-col items-center justify-center'>
 				<p className='mb-4'>找不到旅程資料...</p>
@@ -172,8 +84,16 @@ export default function TripPage() {
 		);
 	}
 
+	if (tripLoading) {
+		return (
+			<div className='bg-gray-100 min-h-screen flex items-center justify-center'>
+				<p className='text-gray-500'>載入中...</p>
+			</div>
+		);
+	}
+
 	return (
-		<SingleTripContext.Provider value={{ trip, api }}>
+		<SingleTripContext.Provider value={{ trip: tripData as Trip }}>
 			<div className='bg-gray-100 font-sans min-h-screen'>
 				<div className='container mx-auto max-w-lg p-4'>
 					<Header onAddClick={openAddModal} />

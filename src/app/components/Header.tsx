@@ -2,7 +2,7 @@
 
 import React, { useState, useContext } from 'react';
 import { useRouter } from 'next/navigation';
-import { SingleTripContext } from '@/app/trip/[tripId]/page';
+import { SingleTripContext } from '@/app/context/SingleTripProvider';
 
 interface HeaderProps {
 	onAddClick: () => void;
