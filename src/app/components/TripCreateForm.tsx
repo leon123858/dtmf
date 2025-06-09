@@ -6,6 +6,7 @@ import { createTripAction } from '@/app/lib/staticActions/tripActions';
 
 export const TripCreationForm: React.FC = () => {
 	const { pending } = useFormStatus();
+	const [isClicked, setIsClicked] = React.useState(false);
 
 	return (
 		<form
@@ -35,6 +36,7 @@ export const TripCreationForm: React.FC = () => {
 					}
 				`}
 				disabled={pending}
+				onClick={() => setIsClicked(true)}
 			>
 				{pending && (
 					<svg
@@ -58,7 +60,7 @@ export const TripCreationForm: React.FC = () => {
 						></path>
 					</svg>
 				)}
-				<span>{pending ? '建立中...' : '開始分帳'}</span>
+				<span>{isClicked ? '建立中...' : '開始分帳'}</span>
 			</button>
 		</form>
 	);

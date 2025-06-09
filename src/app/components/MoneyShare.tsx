@@ -28,22 +28,38 @@ export const MoneyShare = () => {
 			<h2 className='text-xl font-bold mb-4 text-gray-800'>結算</h2>
 			<div className='space-y-4'>
 				{tripData.moneyShare.map((tx, index) => (
-					<div
-						key={index}
-						className='flex items-center justify-center space-x-4 p-3 bg-gray-50 rounded-lg'
-					>
-						<span className='font-semibold text-gray-700'>
-							{longStringSimplify(tx.input[0].address)}
-						</span>
-						<div className='flex flex-col items-center'>
-							<span className='text-lg font-bold text-blue-600'>→</span>
-							<span className='text-sm text-blue-500'>
-								${tx.input[0].amount.toFixed(2)}
+					<div key={index} className='p-3 bg-gray-50 rounded-lg'>
+						{/* Input 部分 */}
+						{tx.input.map((inputItem, inputIndex) => (
+							<div
+								key={inputIndex}
+								className='flex items-center justify-between mb-2'
+							>
+								<span className='font-semibold text-gray-700'>
+									{longStringSimplify(inputItem.address)}
+								</span>
+								<div className='flex items-center space-x-2'>
+									<span className='text-lg font-bold text-red-600'>支付</span>
+									<span className='text-sm text-red-500'>
+										${inputItem.amount.toFixed(2)}
+									</span>
+								</div>
+							</div>
+						))}
+						{/* 分隔線 */}
+						<hr className='my-2 border-gray-300' />
+						{/* Output 部分 */}
+						<div className='flex items-center justify-between mt-2'>
+							<span className='font-semibold text-gray-700'>
+								{longStringSimplify(tx.output.address)}
 							</span>
+							<div className='flex items-center space-x-2'>
+								<span className='text-lg font-bold text-green-600'>收到</span>
+								<span className='text-sm text-green-500'>
+									${tx.output.amount.toFixed(2)}
+								</span>
+							</div>
 						</div>
-						<span className='font-semibold text-gray-700'>
-							{longStringSimplify(tx.output.address)}
-						</span>
 					</div>
 				))}
 			</div>
