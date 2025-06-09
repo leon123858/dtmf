@@ -51,5 +51,9 @@ export const MOCK_TRIP_STORE: { [key: string]: Trip } = {
 };
 
 // --- Helper Functions ---
-export const hexToSimple = (hex: string) =>
-	hex ? hex.substring(0, 5) + '...' : '';
+export const hexToSimple = (hex: string) => {
+	if (hex.length < 5) {
+		return hex; // 如果 hex 太短，直接返回
+	}
+	return hex.substring(0, 5) + '...';
+};

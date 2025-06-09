@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { Record } from '@/app/lib/types';
 import { hexToSimple } from '@/app/lib/data';
+import { useGraphQLClient } from '@/app/lib/tripApi/client';
 
 interface RecordModalProps {
 	onClose: () => void;
@@ -14,19 +15,40 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 	onClose,
 	record,
 }) => {
+	const {
+		queries: { useTrip },
+		mutations: { useCreateRecord, useUpdateRecord },
+	} = useGraphQLClient();
+
+	const [name, setName] = useState('');
+	const [amount, setAmount] = useState('');
+	const [prePayAddress, setPrePayAddress] = useState('');
+	const [shouldPayAddress, setShouldPayAddress] = useState<string[]>([]);
 	const context = useContext(SingleTripContext);
+	const { data: tripData, refetch } = useTrip(context?.tripId || '');
+	const [updateRecord, { loading: updating, error: updateError }] =
+		useUpdateRecord();
+	const [createRecord, { loading: creating, error: createError }] =
+		useCreateRecord();
+
+	// Initialize form fields if editing an existing record
+	useEffect(() => {
+		if (record) {
+			setName(record.name);
+			setAmount(record.amount.toString());
+			setPrePayAddress(record.prePayAddress);
+			setShouldPayAddress(record.shouldPayAddress);
+		} else {
+			// Reset fields for new record
+			setName('');
+			setAmount('');
+			setPrePayAddress(tripData?.addressList[0] || '');
+			setShouldPayAddress([]);
+		}
+	}, [record, tripData]);
 
 	if (!context) return null;
-	const { trip } = context;
-
-	const [name, setName] = useState(record ? record.name : '');
-	const [amount, setAmount] = useState(record ? String(record.amount) : '');
-	const [prePayAddress, setPrePayAddress] = useState(
-		record ? record.prePayAddress : trip.addressList[0] || ''
-	);
-	const [shouldPayAddress, setShouldPayAddress] = useState<string[]>(
-		record ? record.shouldPayAddress : []
-	);
+	if (!tripData) return null;
 
 	const handleShouldPayToggle = (address: string) => {
 		setShouldPayAddress((prev) =>
@@ -45,23 +67,47 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 			!prePayAddress ||
 			shouldPayAddress.length === 0
 		) {
+			console.error('Invalid input:', {
+				name,
+				amount,
+				prePayAddress,
+				shouldPayAddress,
+			});
 			alert('請填寫所有欄位！');
 			return;
 		}
 
-		// const newRecordData = {
-		// 	name,
-		// 	amount: finalAmount,
-		// 	prePayAddress,
-		// 	shouldPayAddress,
-		// };
+		const newRecordData = {
+			name,
+			amount: finalAmount,
+			prePayAddress,
+			shouldPayAddress,
+		};
 
 		if (record) {
 			// Editing existing record
-			// api.updateRecord(record.id, newRecordData);
+			updateRecord({
+				variables: {
+					recordId: record.id,
+					input: newRecordData,
+				},
+			}).catch((error) => {
+				console.error('Error updating record:', error);
+				alert('更新失敗，請稍後再試。');
+			});
+			refetch();
 		} else {
 			// Creating new record
-			// api.createRecord(newRecordData);
+			createRecord({
+				variables: {
+					tripId: tripData.id,
+					input: newRecordData,
+				},
+			}).catch((error) => {
+				console.error('Error creating record:', error);
+				alert('新增失敗，請稍後再試。');
+			});
+			refetch();
 		}
 		onClose();
 	};
@@ -107,7 +153,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 							onChange={(e) => setPrePayAddress(e.target.value)}
 							className='shadow border rounded w-full py-2 px-3 text-gray-700'
 						>
-							{trip.addressList.map((addr) => (
+							{tripData.addressList.map((addr) => (
 								<option key={addr} value={addr}>
 									{hexToSimple(addr)}
 								</option>
@@ -119,7 +165,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 							分攤人
 						</label>
 						<div className='grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-md'>
-							{trip.addressList.map((addr) => (
+							{tripData.addressList.map((addr) => (
 								<label
 									key={addr}
 									className='flex items-center space-x-2 p-2 rounded-md hover:bg-gray-200 cursor-pointer'

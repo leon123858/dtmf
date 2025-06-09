@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
-import { Trip, Record as RecordType } from '@/app/lib/types';
+import { Record as RecordType } from '@/app/lib/types';
 import { useGraphQLClient } from '@/app/lib/tripApi/client';
 
 // 引入拆分的元件
@@ -13,6 +13,7 @@ import { RecordList } from '@/app/components/RecordList';
 import { MoneyShare } from '@/app/components/MoneyShare';
 import { AddressList } from '@/app/components/AddressList';
 import { RecordModal } from '@/app/components/RecordModal';
+import { stringify } from 'querystring';
 
 export default function TripPage() {
 	const router = useRouter();
@@ -21,13 +22,6 @@ export default function TripPage() {
 
 	const {
 		queries: { useTrip },
-		mutations: {
-			// useCreateRecord,
-			// useUpdateRecord,
-			// useRemoveRecord,
-			// useCreateAddress,
-			// useDeleteAddress,
-		},
 	} = useGraphQLClient();
 
 	const {
@@ -36,12 +30,6 @@ export default function TripPage() {
 		error: tripError,
 		// refetch: refetchTrip,
 	} = useTrip(tripId);
-
-	// const [createRecord, createRecordInfo] = useCreateRecord();
-	// const [updateRecord, updateRecordInfo] = useUpdateRecord();
-	// const [removeRecord, removeRecordInfo] = useRemoveRecord();
-	// const [createAddress, createAddressInfo] = useCreateAddress();
-	// const [deleteAddress, deleteAddressInfo] = useDeleteAddress();
 
 	// 將旅程狀態存在本地，以便編輯
 	const [activeTab, setActiveTab] = useState('records');
@@ -61,7 +49,7 @@ export default function TripPage() {
 	};
 
 	const openEditModal = (record: RecordType) => {
-		setEditingRecord(record);
+		setEditingRecord(structuredClone(record)); // 使用 structuredClone 確保不會修改原始資料
 		setShowAddRecordModal(true);
 	};
 
@@ -93,7 +81,7 @@ export default function TripPage() {
 	}
 
 	return (
-		<SingleTripContext.Provider value={{ trip: tripData as Trip }}>
+		<SingleTripContext.Provider value={{ tripId }}>
 			<div className='bg-gray-100 font-sans min-h-screen'>
 				<div className='container mx-auto max-w-lg p-4'>
 					<Header onAddClick={openAddModal} />

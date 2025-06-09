@@ -3,18 +3,24 @@
 import React, { useState, useContext } from 'react';
 import { useRouter } from 'next/navigation';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
+import { useGraphQLClient } from '../lib/tripApi/client';
 
 interface HeaderProps {
 	onAddClick: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ onAddClick }) => {
-	const context = useContext(SingleTripContext);
+	const {
+		queries: { useTrip },
+	} = useGraphQLClient();
+
 	const router = useRouter();
 	const [isCopied, setIsCopied] = useState(false);
 
-	if (!context) return null; // or a loading skeleton
-	const { trip } = context;
+	const context = useContext(SingleTripContext);
+	const { data: tripData } = useTrip(context?.tripId || '');
+
+	if (!context || !tripData) return null;
 
 	const handleShare = () => {
 		const shareUrl = window.location.href; // Next.js 中直接用 href 即可
@@ -40,7 +46,7 @@ export const Header: React.FC<HeaderProps> = ({ onAddClick }) => {
 					‹
 				</button>
 				<h1 className='text-3xl font-bold text-gray-800 truncate'>
-					{trip.name}
+					{tripData.name}
 				</h1>
 			</div>
 			<div className='flex items-center space-x-2'>
