@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useContext } from 'react';
+import React, { useContext, useEffect } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { Record } from '@/app/lib/types';
 import { useGraphQLClient } from '@/app/lib/tripApi/client';
@@ -15,12 +15,14 @@ export const RecordList: React.FC<RecordListProps> = ({ onEdit }) => {
 	const {
 		queries: { useTrip },
 		mutations: { useRemoveRecord },
+		// subscriptions: { useSubAddressDelete },
 	} = useGraphQLClient();
 
 	const [removeRecord, { loading: removing, error: removeError }] =
 		useRemoveRecord();
 	const context = useContext(SingleTripContext);
 	const { data: tripData, refetch } = useTrip(context?.tripId || '');
+
 	if (!context || !tripData) return null;
 
 	if (tripData.records.length === 0) {

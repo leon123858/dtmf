@@ -43,7 +43,7 @@ export const Header: React.FC<HeaderProps> = ({ onAddClick }) => {
 					onClick={() => router.push('/')}
 					className='text-blue-500 hover:text-blue-700 text-2xl font-bold'
 				>
-					‹
+					🏠
 				</button>
 				<h1 className='text-3xl font-bold text-gray-800 truncate'>
 					{tripData.name}

@@ -1,22 +1,39 @@
-import { HttpLink } from '@apollo/client';
+import { HttpLink, split } from '@apollo/client';
 import {
 	registerApolloClient,
 	ApolloClient,
 	InMemoryCache,
 } from '@apollo/client-integration-nextjs';
-import { baseURL } from './config';
+import { baseURL, wsURL } from './config';
+import { getMainDefinition } from '@apollo/client/utilities';
+import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
+import { createClient } from 'graphql-ws';
+
+const httpLink = new HttpLink({
+	uri: baseURL,
+});
+
+const wsLink = new GraphQLWsLink(
+	createClient({
+		url: wsURL,
+	})
+);
+
+const splitLink = split(
+	({ query }) => {
+		const definition = getMainDefinition(query);
+		return (
+			definition.kind === 'OperationDefinition' &&
+			definition.operation === 'subscription'
+		);
+	},
+	wsLink,
+	httpLink
+);
 
 export const { getClient, query, PreloadQuery } = registerApolloClient(() => {
 	return new ApolloClient({
 		cache: new InMemoryCache(),
-		link: new HttpLink({
-			// this needs to be an absolute url, as relative urls cannot be used in SSR
-			uri: baseURL,
-			fetchOptions: {
-				// you can pass additional options that should be passed to `fetch` here,
-				// e.g. Next.js-related `fetch` options regarding caching and revalidation
-				// see https://nextjs.org/docs/app/api-reference/functions/fetch#fetchurl-options
-			},
-		}),
+		link: splitLink,
 	});
 });
