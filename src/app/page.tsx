@@ -1,7 +1,7 @@
 // app/page.js - 這將是我們的首頁 Server Component
 // 無需 'use client' 指令，因為它不再處理客戶端狀態或事件
 
-import { createTripAction } from './lib/tripActions'; // 導入 Server Action
+import { createTripAction } from './lib/staticActions/tripActions'; // 導入 Server Action
 
 export default async function HomePage() {
 	// Server Component 不會有 useState, useEffect, useRouter 等 Hook
@@ -28,7 +28,7 @@ export default async function HomePage() {
 					<input
 						type='text'
 						name='tripName' // **關鍵：設置 name 屬性，Server Action 會通過這個 name 獲取值**
-						placeholder='例如：2024 日本關西之旅'
+						placeholder='例如: 2024 日本關西之旅'
 						className='w-full p-3 border border-gray-300 rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-blue-500'
 						required
 					/>

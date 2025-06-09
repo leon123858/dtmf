@@ -2,9 +2,9 @@
 
 import React, { useContext } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
-import { hexToSimple } from '@/app/lib/data';
 import { Record } from '@/app/lib/types';
 import { useGraphQLClient } from '@/app/lib/tripApi/client';
+import { longStringSimplify } from '@/app/lib/utils';
 
 interface RecordListProps {
 	onEdit: (record: Record) => void;
@@ -41,11 +41,12 @@ export const RecordList: React.FC<RecordListProps> = ({ onEdit }) => {
 					<div className='flex-1'>
 						<p className='font-bold text-lg text-gray-800'>{record.name}</p>
 						<p className='text-sm text-gray-500 mt-1'>
-							由 {hexToSimple(record.prePayAddress)} 墊付 $
+							由 {longStringSimplify(record.prePayAddress)} 墊付 $
 							{record.amount.toLocaleString()}
 						</p>
 						<p className='text-sm text-gray-500 mt-1'>
-							分攤人: {record.shouldPayAddress.map(hexToSimple).join(', ')}
+							分攤人:{' '}
+							{record.shouldPayAddress.map(longStringSimplify).join(', ')}
 						</p>
 					</div>
 					<div className='flex space-x-2'>

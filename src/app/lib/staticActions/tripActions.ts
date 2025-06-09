@@ -1,8 +1,8 @@
 'use server'; // 標記為 Server Action 檔案
 
 import { redirect } from 'next/navigation';
-import { createTripHttp } from './tripApi/http';
-import { NewTripInput } from './tripApi/types';
+import { createTripHttp } from '../tripApi/http';
+import { NewTripInput } from '../tripApi/types';
 
 export async function createTripAction(formData: FormData) {
 	// 從表單數據中獲取 tripName

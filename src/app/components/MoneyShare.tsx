@@ -2,8 +2,8 @@
 
 import React, { useContext } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
-import { hexToSimple } from '@/app/lib/data';
 import { useGraphQLClient } from '@/app/lib/tripApi/client';
+import { longStringSimplify } from '@/app/lib/utils';
 
 export const MoneyShare = () => {
 	const {
@@ -33,7 +33,7 @@ export const MoneyShare = () => {
 						className='flex items-center justify-center space-x-4 p-3 bg-gray-50 rounded-lg'
 					>
 						<span className='font-semibold text-gray-700'>
-							{hexToSimple(tx.input[0].address)}
+							{longStringSimplify(tx.input[0].address)}
 						</span>
 						<div className='flex flex-col items-center'>
 							<span className='text-lg font-bold text-blue-600'>→</span>
@@ -42,7 +42,7 @@ export const MoneyShare = () => {
 							</span>
 						</div>
 						<span className='font-semibold text-gray-700'>
-							{hexToSimple(tx.output.address)}
+							{longStringSimplify(tx.output.address)}
 						</span>
 					</div>
 				))}

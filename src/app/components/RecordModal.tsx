@@ -3,8 +3,8 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { Record } from '@/app/lib/types';
-import { hexToSimple } from '@/app/lib/data';
 import { useGraphQLClient } from '@/app/lib/tripApi/client';
+import { longStringSimplify } from '@/app/lib/utils';
 
 interface RecordModalProps {
 	onClose: () => void;
@@ -155,7 +155,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 						>
 							{tripData.addressList.map((addr) => (
 								<option key={addr} value={addr}>
-									{hexToSimple(addr)}
+									{longStringSimplify(addr)}
 								</option>
 							))}
 						</select>
@@ -176,7 +176,9 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 										onChange={() => handleShouldPayToggle(addr)}
 										className='form-checkbox h-5 w-5 text-blue-600'
 									/>
-									<span className='text-gray-700'>{hexToSimple(addr)}</span>
+									<span className='text-gray-700'>
+										{longStringSimplify(addr)}
+									</span>
 								</label>
 							))}
 						</div>
