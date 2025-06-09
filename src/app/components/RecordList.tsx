@@ -31,6 +31,20 @@ export const RecordList: React.FC<RecordListProps> = ({ onEdit }) => {
 		);
 	}
 
+	if (removing) {
+		return (
+			<div className='text-center text-blue-500 mt-12'>正在刪除帳目...</div>
+		);
+	}
+	if (removeError) {
+		console.error('Error removing record:', removeError);
+		return (
+			<div className='text-center text-red-500 mt-12'>
+				刪除失敗，請稍後再試。
+			</div>
+		);
+	}
+
 	return (
 		<div className='space-y-3'>
 			{tripData.records.map((record) => (

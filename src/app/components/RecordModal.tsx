@@ -50,6 +50,30 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 	if (!context) return null;
 	if (!tripData) return null;
 
+	if (creating) {
+		return <div className='text-center text-blue-500 mt-12'>新增中...</div>;
+	}
+	if (createError) {
+		console.error('Error creating record:', createError);
+		return (
+			<div className='text-center text-red-500 mt-12'>
+				新增失敗，請稍後再試。
+			</div>
+		);
+	}
+
+	if (updating) {
+		return <div className='text-center text-blue-500 mt-12'>更新中...</div>;
+	}
+	if (updateError) {
+		console.error('Error updating record:', updateError);
+		return (
+			<div className='text-center text-red-500 mt-12'>
+				更新失敗，請稍後再試。
+			</div>
+		);
+	}
+
 	const handleShouldPayToggle = (address: string) => {
 		setShouldPayAddress((prev) =>
 			prev.includes(address)

@@ -23,6 +23,29 @@ export const AddressList = () => {
 
 	if (!context || !tripData) return null;
 
+	if (creating) {
+		return <div className='text-center text-blue-500 mt-12'>新增中...</div>;
+	}
+	if (createError) {
+		console.error('Error creating address:', createError);
+		return (
+			<div className='text-center text-red-500 mt-12'>
+				新增失敗，請稍後再試。
+			</div>
+		);
+	}
+	if (removing) {
+		return <div className='text-center text-blue-500 mt-12'>移除中...</div>;
+	}
+	if (removeError) {
+		console.error('Error removing address:', removeError);
+		return (
+			<div className='text-center text-red-500 mt-12'>
+				移除失敗，請稍後再試。
+			</div>
+		);
+	}
+
 	const handleAddAddress = () => {
 		if (newAddress.trim()) {
 			createAddress({
