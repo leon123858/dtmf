@@ -1,9 +1,5 @@
 import { HttpLink, split } from '@apollo/client';
-import {
-	registerApolloClient,
-	ApolloClient,
-	InMemoryCache,
-} from '@apollo/client-integration-nextjs';
+import { ApolloClient, InMemoryCache } from '@apollo/client-integration-nextjs';
 import { baseURL, wsURL } from './config';
 import { getMainDefinition } from '@apollo/client/utilities';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
@@ -31,9 +27,21 @@ const splitLink = split(
 	httpLink
 );
 
-export const { getClient, query, PreloadQuery } = registerApolloClient(() => {
-	return new ApolloClient({
-		cache: new InMemoryCache(),
-		link: splitLink,
-	});
+const client = new ApolloClient({
+	link: splitLink,
+	cache: new InMemoryCache({
+		// typePolicies: {
+		// 	Query: {
+		// 		fields: {
+		// 			trip: {
+		// 				keyArgs: ['id'],
+		// 			},
+		// 		},
+		// 	},
+		// },
+	}),
 });
+
+export const getClient = () => {
+	return client;
+};

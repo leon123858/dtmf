@@ -32,27 +32,27 @@ export const Header: React.FC<HeaderProps> = ({ onAddClick }) => {
 	const {
 		data: subAddressDeleteData,
 		error: subAddressDeleteError,
-		loading: subAddressDeleteLoading,
+		// loading: subAddressDeleteLoading,
 	} = useSubAddressDelete(context?.tripId || '');
 	const {
 		data: subAddressCreateData,
 		error: subAddressCreateError,
-		loading: subAddressCreateLoading,
+		// loading: subAddressCreateLoading,
 	} = useSubAddressCreate(context?.tripId || '');
 	const {
 		data: subRecordCreateData,
 		error: subRecordCreateError,
-		loading: subRecordCreateLoading,
+		// loading: subRecordCreateLoading,
 	} = useSubRecordCreate(context?.tripId || '');
 	const {
 		data: subRecordDeleteData,
 		error: subRecordDeleteError,
-		loading: subRecordDeleteLoading,
+		// loading: subRecordDeleteLoading,
 	} = useSubRecordDelete(context?.tripId || '');
 	const {
 		data: subRecordUpdateData,
 		error: subRecordUpdateError,
-		loading: subRecordUpdateLoading,
+		// loading: subRecordUpdateLoading,
 	} = useSubRecordUpdate(context?.tripId || '');
 
 	useEffect(() => {
