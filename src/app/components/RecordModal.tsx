@@ -25,7 +25,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 	const [prePayAddress, setPrePayAddress] = useState('');
 	const [shouldPayAddress, setShouldPayAddress] = useState<string[]>([]);
 	const context = useContext(SingleTripContext);
-	const { data: tripData, refetch } = useTrip(context?.tripId || '');
+	const { data: tripData } = useTrip(context?.tripId || '');
 	const [updateRecord, { loading: updating, error: updateError }] =
 		useUpdateRecord();
 	const [createRecord, { loading: creating, error: createError }] =
@@ -119,7 +119,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 				console.error('Error updating record:', error);
 				alert('更新失敗，請稍後再試。');
 			});
-			refetch();
+			// refetch();
 		} else {
 			// Creating new record
 			createRecord({
@@ -131,7 +131,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 				console.error('Error creating record:', error);
 				alert('新增失敗，請稍後再試。');
 			});
-			refetch();
+			// refetch();
 		}
 		onClose();
 	};

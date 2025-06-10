@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { useGraphQLClient } from '../lib/tripApi/client';
+import { Message } from './Message';
 
 interface HeaderProps {
 	onAddClick: () => void;
@@ -12,15 +13,94 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ onAddClick }) => {
 	const {
 		queries: { useTrip },
+		subscriptions: {
+			useSubAddressDelete,
+			useSubAddressCreate,
+			useSubRecordCreate,
+			useSubRecordDelete,
+			useSubRecordUpdate,
+		},
 	} = useGraphQLClient();
 
 	const router = useRouter();
 	const [isCopied, setIsCopied] = useState(false);
+	const [isSyncing, setIsSyncing] = useState(false);
 
 	const context = useContext(SingleTripContext);
-	const { data: tripData } = useTrip(context?.tripId || '');
+	const { data: tripData, refetch } = useTrip(context?.tripId || '');
+
+	const {
+		data: subAddressDeleteData,
+		error: subAddressDeleteError,
+		loading: subAddressDeleteLoading,
+	} = useSubAddressDelete(context?.tripId || '');
+	const {
+		data: subAddressCreateData,
+		error: subAddressCreateError,
+		loading: subAddressCreateLoading,
+	} = useSubAddressCreate(context?.tripId || '');
+	const {
+		data: subRecordCreateData,
+		error: subRecordCreateError,
+		loading: subRecordCreateLoading,
+	} = useSubRecordCreate(context?.tripId || '');
+	const {
+		data: subRecordDeleteData,
+		error: subRecordDeleteError,
+		loading: subRecordDeleteLoading,
+	} = useSubRecordDelete(context?.tripId || '');
+	const {
+		data: subRecordUpdateData,
+		error: subRecordUpdateError,
+		loading: subRecordUpdateLoading,
+	} = useSubRecordUpdate(context?.tripId || '');
+
+	useEffect(() => {
+		// 當 data 有值時 (表示收到了伺服器的推送)
+		if (
+			subAddressDeleteData ||
+			subAddressCreateData ||
+			subRecordCreateData ||
+			subRecordDeleteData ||
+			subRecordUpdateData
+		) {
+			setIsSyncing(true);
+			console.log('Received new data, refetching...');
+			console.log('data:', {
+				subAddressDeleteData,
+				subAddressCreateData,
+				subRecordCreateData,
+				subRecordDeleteData,
+				subRecordUpdateData,
+			});
+			refetch();
+			setIsSyncing(false);
+		}
+	}, [
+		subAddressDeleteData,
+		subAddressCreateData,
+		subRecordCreateData,
+		subRecordDeleteData,
+		subRecordUpdateData,
+		refetch,
+	]);
 
 	if (!context || !tripData) return null;
+
+	if (
+		subAddressDeleteError ||
+		subAddressCreateError ||
+		subRecordCreateError ||
+		subRecordDeleteError ||
+		subRecordUpdateError
+	) {
+		console.error('sync error:', subAddressDeleteError);
+		return (
+			<Message variant='error' isShow>
+				<span>遠端資訊同步失敗，請重新嘗試開啟。</span>
+			</Message>
+		);
+	}
 
 	const handleShare = () => {
 		const shareUrl = window.location.href; // Next.js 中直接用 href 即可
@@ -38,6 +118,9 @@ export const Header: React.FC<HeaderProps> = ({ onAddClick }) => {
 
 	return (
 		<header className='flex justify-between items-center py-4'>
+			<Message variant={'info'} isShow={isSyncing}>
+				<span>其他人更新中...</span>
+			</Message>
 			<div className='flex items-center space-x-3'>
 				<button
 					onClick={() => router.push('/')}

@@ -14,7 +14,7 @@ export const AddressList = () => {
 	const [isAdding, setIsAdding] = useState(false);
 
 	const context = useContext(SingleTripContext);
-	const { data: tripData, refetch } = useTrip(context?.tripId || '');
+	const { data: tripData } = useTrip(context?.tripId || '');
 
 	const [createAddress, { loading: creating, error: createError }] =
 		useCreateAddress();
@@ -59,7 +59,7 @@ export const AddressList = () => {
 			});
 			setNewAddress('');
 			setIsAdding(false);
-			refetch();
+			// refetch();
 		}
 	};
 
@@ -74,7 +74,7 @@ export const AddressList = () => {
 			console.error('Error removing address:', error);
 			alert('移除失敗，請稍後再試。');
 		});
-		refetch();
+		// refetch();
 	};
 
 	return (
