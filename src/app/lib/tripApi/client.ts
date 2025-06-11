@@ -125,6 +125,7 @@ export const useGraphQLClient = (): TripGraphQLClient => {
 				>(GET_TRIP, {
 					variables: { tripId },
 					fetchPolicy: 'cache-first',
+					pollInterval: 20000, // 每20秒重新拉取一次數據
 				});
 				return { data: data?.trip, loading, error, refetch };
 			},
