@@ -5,6 +5,7 @@ import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { Record } from '@/app/lib/types';
 import { useGraphQLClient } from '@/app/lib/tripApi/client';
 import { longStringSimplify } from '@/app/lib/utils';
+import { Message } from './Message';
 
 interface RecordModalProps {
 	onClose: () => void;
@@ -25,11 +26,14 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 	const [prePayAddress, setPrePayAddress] = useState('');
 	const [shouldPayAddress, setShouldPayAddress] = useState<string[]>([]);
 	const context = useContext(SingleTripContext);
-	const { data: tripData } = useTrip(context?.tripId || '');
+	const { data: tripData, refetch } = useTrip(context?.tripId || '');
 	const [updateRecord, { loading: updating, error: updateError }] =
 		useUpdateRecord();
 	const [createRecord, { loading: creating, error: createError }] =
 		useCreateRecord();
+
+	const [isAlertVisible, setIsAlertVisible] = useState(false);
+	const [alertMessage, setAlertMessage] = useState('');
 
 	// Initialize form fields if editing an existing record
 	useEffect(() => {
@@ -97,7 +101,12 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 				prePayAddress,
 				shouldPayAddress,
 			});
-			alert('請填寫所有欄位！');
+			setIsAlertVisible(true);
+			setAlertMessage('請填寫所有必填欄位。');
+			setTimeout(() => {
+				setIsAlertVisible(false);
+				setAlertMessage('');
+			}, 3000);
 			return;
 		}
 
@@ -117,9 +126,13 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 				},
 			}).catch((error) => {
 				console.error('Error updating record:', error);
-				alert('更新失敗，請稍後再試。');
+				setIsAlertVisible(true);
+				setAlertMessage('更新失敗，請稍後再試。');
+				setTimeout(() => {
+					setIsAlertVisible(false);
+					setAlertMessage('');
+				}, 3000);
 			});
-			// refetch();
 		} else {
 			// Creating new record
 			createRecord({
@@ -129,10 +142,15 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 				},
 			}).catch((error) => {
 				console.error('Error creating record:', error);
-				alert('新增失敗，請稍後再試。');
+				setIsAlertVisible(true);
+				setAlertMessage('新增失敗，請稍後再試。');
+				setTimeout(() => {
+					setIsAlertVisible(false);
+					setAlertMessage('');
+				}, 3000);
 			});
-			// refetch();
 		}
+		refetch();
 		onClose();
 	};
 
@@ -141,6 +159,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 
 	return (
 		<div className='fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4 z-50'>
+			{isAlertVisible && <Message>{alertMessage}</Message>}
 			<div className='bg-white rounded-lg shadow-xl p-6 w-full max-w-md'>
 				<h2 className='text-2xl font-bold mb-4'>{title}</h2>
 				<form onSubmit={handleSubmit}>

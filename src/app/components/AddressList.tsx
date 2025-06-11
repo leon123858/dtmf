@@ -3,6 +3,7 @@
 import React, { useState, useContext } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { useGraphQLClient } from '../lib/tripApi/client';
+import { Message } from './Message';
 
 export const AddressList = () => {
 	const {
@@ -13,8 +14,11 @@ export const AddressList = () => {
 	const [newAddress, setNewAddress] = useState('');
 	const [isAdding, setIsAdding] = useState(false);
 
+	const [isAlertVisible, setIsAlertVisible] = useState(false);
+	const [alertMessage, setAlertMessage] = useState('');
+
 	const context = useContext(SingleTripContext);
-	const { data: tripData } = useTrip(context?.tripId || '');
+	const { data: tripData, refetch } = useTrip(context?.tripId || '');
 
 	const [createAddress, { loading: creating, error: createError }] =
 		useCreateAddress();
@@ -48,6 +52,7 @@ export const AddressList = () => {
 
 	const handleAddAddress = () => {
 		if (newAddress.trim()) {
+			console.log('Adding address:', newAddress.trim());
 			createAddress({
 				variables: {
 					tripId: context.tripId,
@@ -55,11 +60,16 @@ export const AddressList = () => {
 				},
 			}).catch((error) => {
 				console.error('Error creating address:', error);
-				alert('新增失敗，請稍後再試。');
+				setIsAlertVisible(true);
+				setAlertMessage('新增失敗，請稍後再試。');
+				setTimeout(() => {
+					setIsAlertVisible(false);
+					setAlertMessage('');
+				}, 3000);
 			});
 			setNewAddress('');
 			setIsAdding(false);
-			// refetch();
+			refetch();
 		}
 	};
 
@@ -72,13 +82,19 @@ export const AddressList = () => {
 			},
 		}).catch((error) => {
 			console.error('Error removing address:', error);
-			alert('移除失敗，請稍後再試。');
+			setIsAlertVisible(true);
+			setAlertMessage('移除失敗，請稍後再試。');
+			setTimeout(() => {
+				setIsAlertVisible(false);
+				setAlertMessage('');
+			}, 3000);
 		});
-		// refetch();
+		refetch();
 	};
 
 	return (
 		<div className='bg-white p-4 rounded-lg shadow-md'>
+			{isAlertVisible && <Message>{alertMessage}</Message>}
 			<h2 className='text-xl font-bold mb-4 text-gray-800'>成員列表</h2>
 			<div className='space-y-2 mb-4'>
 				{tripData.addressList.map((address) => (

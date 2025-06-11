@@ -20,7 +20,7 @@ export const RecordList: React.FC<RecordListProps> = ({ onEdit }) => {
 	const [removeRecord, { loading: removing, error: removeError }] =
 		useRemoveRecord();
 	const context = useContext(SingleTripContext);
-	const { data: tripData } = useTrip(context?.tripId || '');
+	const { data: tripData, refetch } = useTrip(context?.tripId || '');
 
 	if (!context || !tripData) return null;
 
@@ -74,7 +74,7 @@ export const RecordList: React.FC<RecordListProps> = ({ onEdit }) => {
 						<button
 							onClick={() => {
 								removeRecord({ variables: { recordId: record.id } });
-								// refetch();
+								refetch();
 							}}
 							disabled={removing}
 							className='text-red-500 hover:text-red-700 p-2'

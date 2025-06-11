@@ -124,6 +124,7 @@ export const useGraphQLClient = (): TripGraphQLClient => {
 					TripQueryVariables
 				>(GET_TRIP, {
 					variables: { tripId },
+					fetchPolicy: 'cache-first',
 				});
 				return { data: data?.trip, loading, error, refetch };
 			},
