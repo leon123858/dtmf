@@ -94,5 +94,5 @@ jobs:
       - name: 'Push Docker image to GCP Artifact Registry'
         run: |
           gcloud auth configure-docker ${{ secrets.REGISTER_NAME }} --quiet
-          docker tag ghcr.io/${{ github.repository }}:latest ${{ secrets.REGISTER_NAME }}/${{ secrets.GCP_PROJECT_ID }}/frontend/dtm:latest
-          docker push ${{ secrets.REGISTER_NAME }}/${{ secrets.GCP_PROJECT_ID }}/frontend/dtm:latest
+          docker tag ghcr.io/${{ github.repository }}:latest ${{ secrets.REGISTER_NAME }}/${{ secrets.GCP_PROJECT_ID }}/frontend/dtmf:latest
+          docker push ${{ secrets.REGISTER_NAME }}/${{ secrets.GCP_PROJECT_ID }}/frontend/dtmf:latest
