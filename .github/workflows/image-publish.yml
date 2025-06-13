@@ -1,5 +1,5 @@
 # 工作流程的名稱，會顯示在 GitHub Actions 頁面上
-name: Docker Image CI
+name: Docker Image CD
 
 # 定義觸發此工作流程的事件
 on:
