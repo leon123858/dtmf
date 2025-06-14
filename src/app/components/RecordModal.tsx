@@ -24,7 +24,9 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 	const context = useContext(SingleTripContext);
 	const { data: tripData, refetch } = useTrip(context?.tripId || '');
 	const [name, setName] = useState(record?.name || '');
-	const [amount, setAmount] = useState(record?.amount || '');
+	const [amount, setAmount] = useState(
+		record?.amount ? record.amount.toString() : ''
+	);
 	const [prePayAddress, setPrePayAddress] = useState(
 		record?.prePayAddress || tripData?.addressList[0] || ''
 	);
