@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { Record } from '@/app/lib/types';
 import { useGraphQLClient } from '@/app/lib/tripApi/client';
@@ -21,12 +21,17 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 		mutations: { useCreateRecord, useUpdateRecord },
 	} = useGraphQLClient();
 
-	const [name, setName] = useState('');
-	const [amount, setAmount] = useState('');
-	const [prePayAddress, setPrePayAddress] = useState('');
-	const [shouldPayAddress, setShouldPayAddress] = useState<string[]>([]);
 	const context = useContext(SingleTripContext);
 	const { data: tripData, refetch } = useTrip(context?.tripId || '');
+	const [name, setName] = useState(record?.name || '');
+	const [amount, setAmount] = useState(record?.amount || '');
+	const [prePayAddress, setPrePayAddress] = useState(
+		record?.prePayAddress || tripData?.addressList[0] || ''
+	);
+	const [shouldPayAddress, setShouldPayAddress] = useState<string[]>(
+		record?.shouldPayAddress || []
+	);
+
 	const [updateRecord, { loading: updating, error: updateError }] =
 		useUpdateRecord();
 	const [createRecord, { loading: creating, error: createError }] =
@@ -34,22 +39,6 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 
 	const [isAlertVisible, setIsAlertVisible] = useState(false);
 	const [alertMessage, setAlertMessage] = useState('');
-
-	// Initialize form fields if editing an existing record
-	useEffect(() => {
-		if (record) {
-			setName(record.name);
-			setAmount(record.amount.toString());
-			setPrePayAddress(record.prePayAddress);
-			setShouldPayAddress(record.shouldPayAddress);
-		} else {
-			// Reset fields for new record
-			setName('');
-			setAmount('');
-			setPrePayAddress(tripData?.addressList[0] || '');
-			setShouldPayAddress([]);
-		}
-	}, [record, tripData]);
 
 	if (!context) return null;
 	if (!tripData) return null;
