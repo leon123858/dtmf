@@ -149,7 +149,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 	const submitText = record ? '儲存變更' : '新增';
 
 	return (
-		<div className='fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4 z-50'>
+		<div className='fixed inset-0 bg-black bg-opacity-50 flex justify-center items-start p-4 z-30 overflow-y-auto'>
 			{isAlertVisible && <Message>{alertMessage}</Message>}
 			<div className='bg-white rounded-lg shadow-xl p-6 w-full max-w-md'>
 				<h2 className='text-2xl font-bold mb-4'>{title}</h2>
