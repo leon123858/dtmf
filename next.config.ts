@@ -5,7 +5,8 @@ const nextConfig: NextConfig = {
 	output: 'standalone',
 
 	publicRuntimeConfig: {
-		apiIP: process.env.NEXT_PUBLIC_API_IP,
+		apiHttpUrl: process.env.NEXT_PUBLIC_API_HTTP_URL,
+		apiWsUrl: process.env.NEXT_PUBLIC_API_WS_URL,
 	},
 };
 
