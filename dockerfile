@@ -15,6 +15,9 @@ COPY . .
 
 # 停用 Next.js 的匿名遙測回報
 ENV NEXT_TELEMETRY_DISABLED=1
+# Backend URL
+ENV NEXT_PUBLIC_API_HTTP_URL='https://dtm-802781249322.asia-east1.run.app'
+ENV NEXT_PUBLIC_API_WS_URL='wss://dtm-802781249322.asia-east1.run.app'
 
 # 執行建置命令
 RUN npm run build
