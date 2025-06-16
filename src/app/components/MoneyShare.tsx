@@ -10,8 +10,10 @@ export const MoneyShare = () => {
 		queries: { useTrip },
 	} = useGraphQLClient();
 
+	const [isFetching, setIsFetching] = React.useState(false);
+
 	const context = useContext(SingleTripContext);
-	const { data: tripData } = useTrip(context?.tripId || '');
+	const { data: tripData, refetch } = useTrip(context?.tripId || '');
 
 	if (!context || !tripData) return null;
 
@@ -23,9 +25,44 @@ export const MoneyShare = () => {
 		);
 	}
 
+	const waitSecondFunction = (seconds: number) => {
+		return new Promise((resolve) => {
+			setTimeout(resolve, seconds * 1000);
+		});
+	};
+
 	return (
 		<div className='bg-white p-4 rounded-lg shadow-md'>
-			<h2 className='text-xl font-bold mb-4 text-gray-800'>結算</h2>
+			<h2 className='text-xl font-bold mb-4 text-gray-800'>
+				結算{' '}
+				<button
+					onClick={() => {
+						if (isFetching) return;
+						setIsFetching(true);
+						// refetch the trip data
+						refetch()
+							.then(() => {
+								// wait for 1 second to ensure UI updates
+								waitSecondFunction(1).then(() => {
+									setIsFetching(false);
+								});
+							})
+							.catch((error) => {
+								console.error('Error refetching trip data:', error);
+								setIsFetching(false);
+							});
+					}}
+					disabled={isFetching}
+					className='rounded hover:bg-gray-200 transition-colors disabled:opacity-50 text-blue-500'
+					aria-label='refresh money share'
+				>
+					{isFetching ? (
+						<span className='loader'>fetching...</span>
+					) : (
+						<span className='material-icons'>refresh</span>
+					)}
+				</button>
+			</h2>
 			<div className='space-y-4'>
 				{tripData.moneyShare.map((tx, index) => (
 					<div key={index} className='p-3 bg-gray-50 rounded-lg'>
