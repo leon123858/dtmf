@@ -12,6 +12,17 @@ export const TripCreationForm: React.FC = () => {
 		<form
 			action={createTripAction}
 			className='bg-white p-8 rounded-xl shadow-lg'
+			onInvalid={(event: React.FormEvent<HTMLFormElement>) => {
+				event.preventDefault();
+				setIsClicked(false);
+				const firstInvalidElement = event.currentTarget.querySelector(
+					'[required]'
+				) as HTMLInputElement;
+				if (firstInvalidElement) {
+					firstInvalidElement.focus();
+				}
+				firstInvalidElement?.reportValidity();
+			}}
 		>
 			<h2 className='text-2xl font-semibold text-gray-700 mb-6'>
 				建立一個新旅程
@@ -36,7 +47,11 @@ export const TripCreationForm: React.FC = () => {
 					}
 				`}
 				disabled={pending}
-				onClick={() => setIsClicked(true)}
+				onClick={() => {
+					if (!pending) {
+						setIsClicked(true);
+					}
+				}}
 			>
 				{pending && (
 					<svg
