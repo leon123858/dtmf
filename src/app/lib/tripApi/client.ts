@@ -75,23 +75,24 @@ interface TripGraphQLClient {
 			UpdateTripMutationData,
 			UpdateTripMutationVariables
 		>;
-		useCreateRecord: () => MutationTuple<
-			CreateRecordMutationData,
-			CreateRecordMutationVariables
-		>;
-		useUpdateRecord: () => MutationTuple<
-			UpdateRecordMutationData,
-			UpdateRecordMutationVariables
-		>;
-		useRemoveRecord: () => MutationTuple<
-			RemoveRecordMutationData,
-			RemoveRecordMutationVariables
-		>;
-		useCreateAddress: () => MutationTuple<
+		useCreateRecord: (
+			tripId: ID
+		) => MutationTuple<CreateRecordMutationData, CreateRecordMutationVariables>;
+		useUpdateRecord: (
+			tripId: ID
+		) => MutationTuple<UpdateRecordMutationData, UpdateRecordMutationVariables>;
+		useRemoveRecord: (
+			tripId: ID
+		) => MutationTuple<RemoveRecordMutationData, RemoveRecordMutationVariables>;
+		useCreateAddress: (
+			tripId: ID
+		) => MutationTuple<
 			CreateAddressMutationData,
 			CreateAddressMutationVariables
 		>;
-		useDeleteAddress: () => MutationTuple<
+		useDeleteAddress: (
+			tripId: ID
+		) => MutationTuple<
 			DeleteAddressMutationData,
 			DeleteAddressMutationVariables
 		>;
@@ -139,25 +140,176 @@ export const useGraphQLClient = (): TripGraphQLClient => {
 				useMutation<UpdateTripMutationData, UpdateTripMutationVariables>(
 					UPDATE_TRIP
 				),
-			useCreateRecord: () =>
+			useCreateRecord: (tripId: ID) =>
 				useMutation<CreateRecordMutationData, CreateRecordMutationVariables>(
-					CREATE_RECORD
+					CREATE_RECORD,
+					{
+						update: (cache, { data }) => {
+							// 更新 Apollo Cache 中的記錄列表
+							const existingTrip = cache.readQuery<TripQueryData>({
+								query: GET_TRIP,
+								variables: { tripId },
+							});
+							if (existingTrip && data?.createRecord) {
+								const curRecordList = existingTrip.trip?.records || [];
+								if (
+									curRecordList.some(
+										(record) => record.id === data.createRecord.id
+									)
+								) {
+									// 如果記錄已存在，則不進行更新
+									return;
+								}
+								const updatedTrip = {
+									...existingTrip,
+									trip: {
+										...existingTrip.trip,
+										records: [
+											...(existingTrip.trip?.records || []),
+											data.createRecord,
+										],
+									},
+								};
+								cache.writeQuery({
+									query: GET_TRIP,
+									variables: { tripId },
+									data: updatedTrip,
+								});
+							}
+						},
+					}
 				),
-			useUpdateRecord: () =>
+			useUpdateRecord: (tripId: ID) =>
 				useMutation<UpdateRecordMutationData, UpdateRecordMutationVariables>(
-					UPDATE_RECORD
+					UPDATE_RECORD,
+					{
+						update: (cache, { data }) => {
+							// 更新 Apollo Cache 中的記錄列表
+							const existingTrip = cache.readQuery<TripQueryData>({
+								query: GET_TRIP,
+								variables: { tripId },
+							});
+							if (existingTrip && data?.updateRecord) {
+								const curRecordList = existingTrip.trip?.records || [];
+								const curRecordIdx = curRecordList.findIndex(
+									(record) => record.id === data.updateRecord.id
+								);
+								if (curRecordIdx === -1) {
+									// 如果找不到要更新的記錄，則不進行更新
+									return;
+								}
+								const updatedTrip = {
+									...existingTrip,
+									trip: {
+										...existingTrip.trip,
+										records: existingTrip.trip?.records.map((record) =>
+											record.id === data.updateRecord.id
+												? data.updateRecord
+												: record
+										),
+									},
+								};
+								cache.writeQuery({
+									query: GET_TRIP,
+									variables: { tripId },
+									data: updatedTrip,
+								});
+							}
+						},
+					}
 				),
-			useRemoveRecord: () =>
+			useRemoveRecord: (tripId: ID) =>
 				useMutation<RemoveRecordMutationData, RemoveRecordMutationVariables>(
-					REMOVE_RECORD
+					REMOVE_RECORD,
+					{
+						update: (cache, { data }) => {
+							// 更新 Apollo Cache 中的記錄列表
+							const existingTrip = cache.readQuery<TripQueryData>({
+								query: GET_TRIP,
+								variables: { tripId },
+							});
+							if (existingTrip && data?.removeRecord) {
+								const updatedRecordList = existingTrip.trip?.records.filter(
+									(record) => record.id !== data.removeRecord
+								);
+								const updatedTrip = {
+									...existingTrip,
+									trip: {
+										...existingTrip.trip,
+										records: updatedRecordList || [],
+									},
+								};
+								cache.writeQuery({
+									query: GET_TRIP,
+									variables: { tripId },
+									data: updatedTrip,
+								});
+							}
+						},
+					}
 				),
-			useCreateAddress: () =>
+			useCreateAddress: (tripId: ID) =>
 				useMutation<CreateAddressMutationData, CreateAddressMutationVariables>(
-					CREATE_ADDRESS
+					CREATE_ADDRESS,
+					{
+						update: (cache, { data }) => {
+							// 更新 Apollo Cache 中的地址列表
+							const existingTrip = cache.readQuery<TripQueryData>({
+								query: GET_TRIP,
+								variables: { tripId },
+							});
+							if (existingTrip && data?.createAddress) {
+								const curAddressList = existingTrip.trip?.addressList || [];
+								if (curAddressList.includes(data.createAddress)) {
+									// 如果地址已存在，則不進行更新
+									return;
+								}
+								const updatedTrip = {
+									...existingTrip,
+									trip: {
+										...existingTrip.trip,
+										addressList: [...curAddressList, data.createAddress],
+									},
+								};
+								cache.writeQuery({
+									query: GET_TRIP,
+									variables: { tripId },
+									data: updatedTrip,
+								});
+							}
+						},
+					}
 				),
-			useDeleteAddress: () =>
+			useDeleteAddress: (tripId: ID) =>
 				useMutation<DeleteAddressMutationData, DeleteAddressMutationVariables>(
-					DELETE_ADDRESS
+					DELETE_ADDRESS,
+					{
+						update: (cache, { data }) => {
+							// 更新 Apollo Cache 中的地址列表
+							const existingTrip = cache.readQuery<TripQueryData>({
+								query: GET_TRIP,
+								variables: { tripId },
+							});
+							if (existingTrip && data?.deleteAddress) {
+								const updatedAddressList =
+									existingTrip.trip?.addressList.filter(
+										(address) => address !== data.deleteAddress
+									);
+								const updatedTrip = {
+									...existingTrip,
+									trip: {
+										...existingTrip.trip,
+										addressList: updatedAddressList || [],
+									},
+								};
+								cache.writeQuery({
+									query: GET_TRIP,
+									variables: { tripId },
+									data: updatedTrip,
+								});
+							}
+						},
+					}
 				),
 		},
 		subscriptions: {

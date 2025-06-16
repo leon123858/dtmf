@@ -18,12 +18,12 @@ export const AddressList = () => {
 	const [alertMessage, setAlertMessage] = useState('');
 
 	const context = useContext(SingleTripContext);
-	const { data: tripData, refetch } = useTrip(context?.tripId || '');
+	const { data: tripData } = useTrip(context?.tripId || '');
 
 	const [createAddress, { loading: creating, error: createError }] =
-		useCreateAddress();
+		useCreateAddress(context?.tripId || '');
 	const [removeAddress, { loading: removing, error: removeError }] =
-		useDeleteAddress();
+		useDeleteAddress(context?.tripId || '');
 
 	if (!context || !tripData) return null;
 
@@ -69,7 +69,6 @@ export const AddressList = () => {
 			});
 			setNewAddress('');
 			setIsAdding(false);
-			refetch();
 		}
 	};
 
@@ -89,7 +88,6 @@ export const AddressList = () => {
 				setAlertMessage('');
 			}, 3000);
 		});
-		refetch();
 	};
 
 	return (

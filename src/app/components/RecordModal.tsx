@@ -22,7 +22,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 	} = useGraphQLClient();
 
 	const context = useContext(SingleTripContext);
-	const { data: tripData, refetch } = useTrip(context?.tripId || '');
+	const { data: tripData } = useTrip(context?.tripId || '');
 	const [name, setName] = useState(record?.name || '');
 	const [amount, setAmount] = useState(
 		record?.amount ? record.amount.toString() : ''
@@ -35,9 +35,9 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 	);
 
 	const [updateRecord, { loading: updating, error: updateError }] =
-		useUpdateRecord();
+		useUpdateRecord(context?.tripId || '');
 	const [createRecord, { loading: creating, error: createError }] =
-		useCreateRecord();
+		useCreateRecord(context?.tripId || '');
 
 	const [isAlertVisible, setIsAlertVisible] = useState(false);
 	const [alertMessage, setAlertMessage] = useState('');
@@ -141,7 +141,6 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 				}, 3000);
 			});
 		}
-		refetch();
 		onClose();
 	};
 
