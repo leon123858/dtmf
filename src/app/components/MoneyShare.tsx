@@ -20,7 +20,7 @@ export const MoneyShare = () => {
 	if (tripData.moneyShare.length === 0) {
 		return (
 			<div className='text-center text-gray-500 mt-12'>
-				目前帳目已結清，或沒有需要分帳的項目。
+				帳目計算中，或沒有需要分帳的項目。
 			</div>
 		);
 	}
