@@ -5,7 +5,6 @@ import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { Record } from '@/app/lib/types';
 import { useGraphQLClient } from '@/app/lib/tripApi/client';
 import { longStringSimplify } from '@/app/lib/utils';
-import { Message } from './Message';
 
 interface RecordModalProps {
 	onClose: () => void;
