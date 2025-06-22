@@ -1,4 +1,7 @@
-export function longStringSimplify(str: string, maxLength: number = 5): string {
+export function longStringSimplify(
+	str: string,
+	maxLength: number = 15
+): string {
 	if (str.length <= maxLength) {
 		return str;
 	}

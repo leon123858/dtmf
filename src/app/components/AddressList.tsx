@@ -4,6 +4,7 @@ import React, { useState, useContext } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { useGraphQLClient } from '../lib/tripApi/client';
 import { Message } from './Message';
+import { longStringSimplify } from '../lib/utils';
 
 export const AddressList = () => {
 	const {
@@ -100,7 +101,9 @@ export const AddressList = () => {
 						key={address}
 						className='flex justify-between items-center bg-gray-50 p-3 rounded-md'
 					>
-						<span className='text-gray-700 font-mono'>{address}</span>
+						<span className='text-gray-700 font-mono'>
+							{longStringSimplify(address)}
+						</span>
 						<button
 							onClick={() => handleRemoveAddress(address)}
 							className='text-red-400 hover:text-red-600 font-bold'

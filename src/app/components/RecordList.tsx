@@ -61,7 +61,9 @@ export const RecordList: React.FC<RecordListProps> = ({ onEdit }) => {
 						</p>
 						<p className='text-sm text-gray-500 mt-1'>
 							分攤人:{' '}
-							{record.shouldPayAddress.map(longStringSimplify).join(', ')}
+							{record.shouldPayAddress
+								.map((addr) => longStringSimplify(addr))
+								.join(', ')}
 						</p>
 					</div>
 					<div className='flex space-x-2'>

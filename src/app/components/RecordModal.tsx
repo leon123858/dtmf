@@ -195,7 +195,16 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 					</div>
 					<div className='mb-4'>
 						<label className='block text-gray-700 text-sm font-bold mb-2'>
-							分攤人
+							分攤人{' '}
+							<label
+								onClick={() => {
+									setShouldPayAddress(tripData.addressList);
+								}}
+								className='rounded hover:bg-gray-200 transition-colors disabled:opacity-50 text-blue-500'
+								aria-label='click all'
+							>
+								全選
+							</label>
 						</label>
 						<div className='grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-md'>
 							{tripData.addressList.map((addr) => (
