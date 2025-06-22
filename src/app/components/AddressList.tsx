@@ -3,7 +3,6 @@
 import React, { useState, useContext } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { useGraphQLClient } from '../lib/tripApi/client';
-import { Message } from './Message';
 import { longStringSimplify } from '../lib/utils';
 
 export const AddressList = () => {
@@ -14,9 +13,6 @@ export const AddressList = () => {
 
 	const [newAddress, setNewAddress] = useState('');
 	const [isAdding, setIsAdding] = useState(false);
-
-	const [isAlertVisible, setIsAlertVisible] = useState(false);
-	const [alertMessage, setAlertMessage] = useState('');
 
 	const context = useContext(SingleTripContext);
 	const { data: tripData } = useTrip(context?.tripId || '');
@@ -35,7 +31,11 @@ export const AddressList = () => {
 		console.error('Error creating address:', createError);
 		return (
 			<div className='text-center text-red-500 mt-12'>
-				新增失敗，請稍後再試。
+				新增失敗，請稍後再試。(
+				{createError.message == 'invalid address'
+					? '輸入含非法字符'
+					: createError.message}
+				)
 			</div>
 		);
 	}
@@ -46,7 +46,11 @@ export const AddressList = () => {
 		console.error('Error removing address:', removeError);
 		return (
 			<div className='text-center text-red-500 mt-12'>
-				移除失敗，請稍後再試。
+				移除失敗，請稍後再試。(
+				{removeError.message == 'invalid address'
+					? '輸入含非法字符'
+					: removeError.message}
+				)
 			</div>
 		);
 	}
@@ -59,14 +63,6 @@ export const AddressList = () => {
 					tripId: context.tripId,
 					address: newAddress.trim(),
 				},
-			}).catch((error) => {
-				console.error('Error creating address:', error);
-				setIsAlertVisible(true);
-				setAlertMessage('新增失敗，請稍後再試。');
-				setTimeout(() => {
-					setIsAlertVisible(false);
-					setAlertMessage('');
-				}, 3000);
 			});
 			setNewAddress('');
 			setIsAdding(false);
@@ -80,20 +76,11 @@ export const AddressList = () => {
 				tripId: context.tripId,
 				address,
 			},
-		}).catch((error) => {
-			console.error('Error removing address:', error);
-			setIsAlertVisible(true);
-			setAlertMessage('移除失敗，請稍後再試。');
-			setTimeout(() => {
-				setIsAlertVisible(false);
-				setAlertMessage('');
-			}, 3000);
 		});
 	};
 
 	return (
 		<div className='bg-white p-4 rounded-lg shadow-md'>
-			{isAlertVisible && <Message>{alertMessage}</Message>}
 			<h2 className='text-xl font-bold mb-4 text-gray-800'>成員列表</h2>
 			<div className='space-y-2 mb-4'>
 				{tripData.addressList.map((address) => (

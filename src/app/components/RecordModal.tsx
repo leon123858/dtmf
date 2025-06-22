@@ -39,9 +39,6 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 	const [createRecord, { loading: creating, error: createError }] =
 		useCreateRecord(context?.tripId || '');
 
-	const [isAlertVisible, setIsAlertVisible] = useState(false);
-	const [alertMessage, setAlertMessage] = useState('');
-
 	if (!context) return null;
 	if (!tripData) return null;
 
@@ -92,12 +89,6 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 				prePayAddress,
 				shouldPayAddress,
 			});
-			setIsAlertVisible(true);
-			setAlertMessage('請填寫所有必填欄位。');
-			setTimeout(() => {
-				setIsAlertVisible(false);
-				setAlertMessage('');
-			}, 3000);
 			return;
 		}
 
@@ -117,12 +108,13 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 				},
 			}).catch((error) => {
 				console.error('Error updating record:', error);
-				setIsAlertVisible(true);
-				setAlertMessage('更新失敗，請稍後再試。');
-				setTimeout(() => {
-					setIsAlertVisible(false);
-					setAlertMessage('');
-				}, 3000);
+				alert(
+					'更新失敗，請稍後再試。(' +
+						(error.message == 'invalid record input'
+							? '輸入含非法字符'
+							: error.message) +
+						')'
+				);
 			});
 		} else {
 			// Creating new record
@@ -133,12 +125,13 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 				},
 			}).catch((error) => {
 				console.error('Error creating record:', error);
-				setIsAlertVisible(true);
-				setAlertMessage('新增失敗，請稍後再試。');
-				setTimeout(() => {
-					setIsAlertVisible(false);
-					setAlertMessage('');
-				}, 3000);
+				alert(
+					'新增失敗，請稍後再試。(' +
+						(error.message == 'invalid record input'
+							? '輸入含非法字符'
+							: error.message) +
+						')'
+				);
 			});
 		}
 		onClose();
@@ -149,7 +142,6 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 
 	return (
 		<div className='fixed inset-0 bg-black bg-opacity-50 flex justify-center items-start p-4 z-30 overflow-y-auto'>
-			{isAlertVisible && <Message>{alertMessage}</Message>}
 			<div className='bg-white rounded-lg shadow-xl p-6 w-full max-w-md'>
 				<h2 className='text-2xl font-bold mb-4'>{title}</h2>
 				<form onSubmit={handleSubmit}>

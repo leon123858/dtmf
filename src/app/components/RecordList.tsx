@@ -41,7 +41,11 @@ export const RecordList: React.FC<RecordListProps> = ({ onEdit }) => {
 		console.error('Error removing record:', removeError);
 		return (
 			<div className='text-center text-red-500 mt-12'>
-				刪除失敗，請稍後再試。
+				刪除失敗，請稍後再試。(
+				{removeError.message == 'invalid record input'
+					? '輸入含非法字符'
+					: removeError.message}
+				)
 			</div>
 		);
 	}
