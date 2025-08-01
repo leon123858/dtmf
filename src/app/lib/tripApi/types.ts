@@ -5,6 +5,7 @@ export interface Record {
 	name: string;
 	amount: number; // Float 對應 number
 	prePayAddress: string;
+	time: string; // ISO 格式的時間字符串
 	shouldPayAddress: string[];
 }
 

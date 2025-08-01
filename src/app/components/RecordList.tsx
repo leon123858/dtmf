@@ -50,45 +50,82 @@ export const RecordList: React.FC<RecordListProps> = ({ onEdit }) => {
 		);
 	}
 
+	let nextDate: number = 0;
+
 	return (
 		<div className='space-y-3'>
-			{tripData.records.map((record) => (
-				<div
-					key={record.id}
-					className='bg-white p-4 rounded-lg shadow-md flex items-center justify-between'
-				>
-					<div className='flex-1'>
-						<p className='font-bold text-lg text-gray-800'>{record.name}</p>
-						<p className='text-sm text-gray-500 mt-1'>
-							由 {longStringSimplify(record.prePayAddress)} 墊付 $
-							{record.amount.toLocaleString()}
-						</p>
-						<p className='text-sm text-gray-500 mt-1'>
-							分攤人:{' '}
-							{record.shouldPayAddress
-								.map((addr) => longStringSimplify(addr))
-								.join(', ')}
-						</p>
+			{tripData.records
+				.map((record) => {
+					return {
+						...record,
+						date: Number(record.time),
+					};
+				})
+				.sort((a, b) => {
+					if (b.date === a.date) {
+						return a.name.localeCompare(b.name);
+					}
+					return a.date - b.date;
+				})
+				.map((record) => {
+					const isNewDay = record.date >= nextDate;
+					if (isNewDay) {
+						const d = new Date(record.date);
+						d.setDate(d.getDate() + 1);
+						d.setHours(0, 0, 0, 0);
+						nextDate = d.getTime();
+					}
+
+					return {
+						...record,
+						isNewDay,
+					};
+				})
+				.map((record) => (
+					<div key={record.id}>
+						{record.isNewDay && (
+							<div className='flex items-center my-4'>
+								<div className='flex-grow border-t border-gray-300'></div>
+								<span className='mx-4 text-gray-600 text-sm font-semibold'>
+									{new Date(record.date).toLocaleDateString()}
+								</span>
+								<div className='flex-grow border-t border-gray-300'></div>
+							</div>
+						)}
+						<div className='bg-white p-4 rounded-lg shadow-md flex items-center justify-between'>
+							<div className='flex-1'>
+								<p className='font-bold text-lg text-gray-800'>{record.name}</p>
+								<p className='text-sm text-gray-500 mt-1'>
+									由 {longStringSimplify(record.prePayAddress)} 墊付 $
+									{record.amount.toLocaleString()}
+								</p>
+								<p className='text-sm text-gray-500 mt-1'>
+									分攤人:{' '}
+									{record.shouldPayAddress
+										.map((addr) => longStringSimplify(addr))
+										.join(', ')}
+								</p>
+							</div>
+							<div className='flex space-x-2'>
+								<button
+									onClick={() => onEdit(record)}
+									className='text-blue-500 hover:text-blue-700 p-2'
+								>
+									✏️
+								</button>
+								<button
+									onClick={() => {
+										removeRecord({ variables: { recordId: record.id } });
+									}}
+									disabled={removing}
+									className='text-red-500 hover:text-red-700 p-2'
+								>
+									🗑️
+								</button>
+							</div>
+						</div>
 					</div>
-					<div className='flex space-x-2'>
-						<button
-							onClick={() => onEdit(record)}
-							className='text-blue-500 hover:text-blue-700 p-2'
-						>
-							✏️
-						</button>
-						<button
-							onClick={() => {
-								removeRecord({ variables: { recordId: record.id } });
-							}}
-							disabled={removing}
-							className='text-red-500 hover:text-red-700 p-2'
-						>
-							🗑️
-						</button>
-					</div>
-				</div>
-			))}
+				))}
 		</div>
 	);
 };

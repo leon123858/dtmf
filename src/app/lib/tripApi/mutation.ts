@@ -14,6 +14,7 @@ export const UPDATE_TRIP = gql`
 		updateTrip(tripId: $tripId, input: $input) {
 			id
 			name
+			time
 		}
 	}
 `;
@@ -25,6 +26,7 @@ export const CREATE_RECORD = gql`
 			name
 			amount
 			prePayAddress
+			time
 			shouldPayAddress
 		}
 	}
@@ -37,6 +39,7 @@ export const UPDATE_RECORD = gql`
 			name
 			amount
 			prePayAddress
+			time
 			shouldPayAddress
 		}
 	}

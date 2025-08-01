@@ -32,6 +32,9 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 	const [shouldPayAddress, setShouldPayAddress] = useState<string[]>(
 		record?.shouldPayAddress || []
 	);
+	const [time, setTime] = useState(
+		record?.time ? Number(record.time) : new Date().getTime()
+	);
 
 	const [updateRecord, { loading: updating, error: updateError }] =
 		useUpdateRecord(context?.tripId || '');
@@ -86,6 +89,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 				name,
 				amount,
 				prePayAddress,
+				time,
 				shouldPayAddress,
 			});
 			return;
@@ -95,6 +99,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 			name,
 			amount: finalAmount,
 			prePayAddress,
+			time: new Date(time).getTime().toString(),
 			shouldPayAddress,
 		};
 
@@ -152,6 +157,20 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 							type='text'
 							value={name}
 							onChange={(e) => setName(e.target.value)}
+							className='shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline'
+							required
+						/>
+					</div>
+					<div className='mb-4'>
+						<label className='block text-gray-700 text-sm font-bold mb-2'>
+							日期
+						</label>
+						<input
+							type='date'
+							value={new Date(time).toISOString().split('T')[0]}
+							onChange={(e) => {
+								setTime(new Date(e.target.value).getTime());
+							}}
 							className='shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline'
 							required
 						/>

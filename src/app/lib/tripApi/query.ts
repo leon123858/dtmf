@@ -11,6 +11,7 @@ export const GET_TRIP = gql`
 				name
 				amount
 				prePayAddress
+				time
 				shouldPayAddress
 			}
 			moneyShare {
