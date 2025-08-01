@@ -166,8 +166,10 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 							日期
 						</label>
 						<input
-							type='date'
-							value={new Date(time).toISOString().split('T')[0]}
+							type='datetime-local'
+							value={new Date(time - new Date(time).getTimezoneOffset() * 60000)
+								.toISOString()
+								.slice(0, 19)}
 							onChange={(e) => {
 								setTime(new Date(e.target.value).getTime());
 							}}
