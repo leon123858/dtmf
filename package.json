@@ -12,6 +12,7 @@
 	"dependencies": {
 		"@apollo/client": "^3.13.8",
 		"@apollo/client-integration-nextjs": "^0.12.2",
+		"@tanstack/react-virtual": "^3.13.12",
 		"class-variance-authority": "^0.7.1",
 		"graphql": "^16.11.0",
 		"graphql-ws": "^6.0.5",
