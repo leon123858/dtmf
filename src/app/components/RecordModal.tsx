@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { Record } from '@/app/lib/types';
 import { useGraphQLClient } from '@/app/lib/tripApi/client';
@@ -9,6 +9,26 @@ import { longStringSimplify } from '@/app/lib/utils';
 interface RecordModalProps {
 	onClose: () => void;
 	record: Record | null; // The record being edited, or null for a new one
+}
+
+function curTimeWithNoSecond() {
+	const d = new Date();
+	d.setSeconds(0, 0);
+	return d.getTime();
+}
+
+// ex: 2025-08-11T01:01
+function myISOLocalString(date: Date): string {
+	if (!(date instanceof Date) || isNaN(date.getTime())) {
+		console.error('Invalid date:', date);
+		return '';
+	}
+	const year = date.getFullYear();
+	const month = String(date.getMonth() + 1).padStart(2, '0');
+	const day = String(date.getDate()).padStart(2, '0');
+	const hours = String(date.getHours()).padStart(2, '0');
+	const minutes = String(date.getMinutes()).padStart(2, '0');
+	return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
 export const RecordModal: React.FC<RecordModalProps> = ({
@@ -33,13 +53,31 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 		record?.shouldPayAddress || []
 	);
 	const [time, setTime] = useState(
-		record?.time ? Number(record.time) : new Date().getTime()
+		record?.time ? Number(record.time) : curTimeWithNoSecond()
 	);
+	const [formattedTime, setFormattedTime] = useState<string>(() => {
+		return myISOLocalString(new Date(curTimeWithNoSecond()));
+	});
 
 	const [updateRecord, { loading: updating, error: updateError }] =
 		useUpdateRecord(context?.tripId || '');
 	const [createRecord, { loading: creating, error: createError }] =
 		useCreateRecord(context?.tripId || '');
+
+	useEffect(() => {
+		const d = new Date(time);
+		try {
+			const formatted = myISOLocalString(d);
+			if (formatted) {
+				setFormattedTime(formatted);
+			} else {
+				console.error('Invalid date:', d);
+			}
+		} catch (error) {
+			console.info('time: d', d);
+			console.error('Error formatting time:', error);
+		}
+	}, [time]);
 
 	if (!context) return null;
 	if (!tripData) return null;
@@ -83,7 +121,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 			isNaN(finalAmount) ||
 			!name.trim() ||
 			!prePayAddress ||
-			shouldPayAddress.length === 0
+			shouldPayAddress.length === 0 ||
+			isNaN(time)
 		) {
 			console.error('Invalid input:', {
 				name,
@@ -92,6 +131,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 				time,
 				shouldPayAddress,
 			});
+			alert('請填寫所有欄位, 並確保金額有被分配。');
 			return;
 		}
 
@@ -167,11 +207,15 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 						</label>
 						<input
 							type='datetime-local'
-							value={new Date(time - new Date(time).getTimezoneOffset() * 60000)
-								.toISOString()
-								.slice(0, 19)}
+							value={formattedTime}
 							onChange={(e) => {
-								setTime(new Date(e.target.value).getTime());
+								const value = e.target.value;
+								const d = new Date(value).getTime();
+								if (d) {
+									setTime(d);
+								} else {
+									console.log('err time be set:', value, d);
+								}
 							}}
 							className='shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline'
 							required
