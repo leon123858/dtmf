@@ -1,5 +1,10 @@
 export type ID = string; // GraphQL ID 通常是字符串
 
+export enum RecordCategory {
+	NORMAL = 'NORMAL',
+	FIX = 'FIX',
+}
+
 export interface Record {
 	id: ID;
 	name: string;
@@ -7,6 +12,9 @@ export interface Record {
 	prePayAddress: string;
 	time: string; // ISO 格式的時間字符串
 	shouldPayAddress: string[];
+	extendPayMsg: number[];
+	category: RecordCategory;
+	isValid: boolean;
 }
 
 export interface Payment {
@@ -25,6 +33,7 @@ export interface Trip {
 	records: Record[];
 	moneyShare: Tx[];
 	addressList: string[];
+	isValid: boolean;
 }
 
 export interface NewRecordInput {
@@ -32,6 +41,9 @@ export interface NewRecordInput {
 	amount: number;
 	prePayAddress: string;
 	shouldPayAddress: string[];
+	time?: string;
+	extendPayMsg?: number[];
+	category?: RecordCategory;
 }
 
 export interface NewTripInput {

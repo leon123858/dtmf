@@ -13,6 +13,9 @@ export const GET_TRIP = gql`
 				prePayAddress
 				time
 				shouldPayAddress
+				extendPayMsg
+				category
+				isValid
 			}
 			moneyShare {
 				input {
@@ -25,6 +28,7 @@ export const GET_TRIP = gql`
 				}
 			}
 			addressList
+			isValid
 		}
 	}
 `;

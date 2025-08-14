@@ -9,6 +9,8 @@ export const SUB_RECORD_CREATE = gql`
 			amount
 			prePayAddress
 			shouldPayAddress
+			extendPayMsg
+			category
 		}
 	}
 `;
@@ -27,6 +29,8 @@ export const SUB_RECORD_UPDATE = gql`
 			amount
 			prePayAddress
 			shouldPayAddress
+			extendPayMsg
+			category
 		}
 	}
 `;

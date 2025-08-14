@@ -166,7 +166,10 @@ export const useGraphQLClient = (): TripGraphQLClient => {
 										...existingTrip.trip,
 										records: [
 											...(existingTrip.trip?.records || []),
-											data.createRecord,
+											{
+												...data.createRecord,
+												isValid: true, // if user use gui to create record, it should be valid
+											},
 										],
 									},
 								};
@@ -204,7 +207,10 @@ export const useGraphQLClient = (): TripGraphQLClient => {
 										...existingTrip.trip,
 										records: existingTrip.trip?.records.map((record) =>
 											record.id === data.updateRecord.id
-												? data.updateRecord
+												? {
+														...data.updateRecord,
+														isValid: true, // if user use gui to create record, it should be valid
+												  }
 												: record
 										),
 									},

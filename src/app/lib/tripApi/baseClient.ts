@@ -4,6 +4,7 @@ import { baseURL, wsURL } from './config';
 import { getMainDefinition } from '@apollo/client/utilities';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { createClient } from 'graphql-ws';
+import { Record } from './types';
 
 const httpLink = new HttpLink({
 	uri: baseURL,
@@ -35,6 +36,16 @@ const client = new ApolloClient({
 				fields: {
 					trip: {
 						keyArgs: ['tripId'],
+					},
+				},
+			},
+			Trip: {
+				fields: {
+					records: {
+						keyArgs: false,
+						merge(_existing: Record[], incoming: Record[] = []) {
+							return [...incoming];
+						},
 					},
 				},
 			},

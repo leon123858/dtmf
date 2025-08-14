@@ -28,6 +28,8 @@ export const CREATE_RECORD = gql`
 			prePayAddress
 			time
 			shouldPayAddress
+			extendPayMsg
+			category
 		}
 	}
 `;
@@ -41,6 +43,8 @@ export const UPDATE_RECORD = gql`
 			prePayAddress
 			time
 			shouldPayAddress
+			extendPayMsg
+			category
 		}
 	}
 `;

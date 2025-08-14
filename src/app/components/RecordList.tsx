@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useContext, useMemo, useRef } from 'react';
+import React, { useContext, useMemo, useRef, useEffect } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { Record } from '@/app/lib/types';
 import { useGraphQLClient } from '@/app/lib/tripApi/client';
@@ -31,7 +31,25 @@ export const RecordList: React.FC<RecordListProps> = ({ onEdit }) => {
 
 		let nextDate: number = 0;
 
-		return tripData.records
+		const inValidRecords = tripData.records.filter((record) => !record.isValid);
+		const validRecords = tripData.records.filter((record) => record.isValid);
+
+		const formattedInValidRecords = inValidRecords
+			.map((record) => ({
+				...record,
+				date: Number(record.time),
+				isNewDay: false,
+			}))
+			.sort((a, b) => {
+				if (b.date === a.date) {
+					return a.name.localeCompare(b.name);
+				}
+				return a.date - b.date;
+			});
+		if (formattedInValidRecords.length > 0) {
+			formattedInValidRecords[0].isNewDay = true;
+		}
+		const formattedValidRecords = validRecords
 			.map((record) => ({
 				...record,
 				date: Number(record.time),
@@ -58,6 +76,7 @@ export const RecordList: React.FC<RecordListProps> = ({ onEdit }) => {
 					isNewDay,
 				};
 			});
+		return [...formattedInValidRecords, ...formattedValidRecords];
 	}, [tripData]);
 
 	const parentRef = useRef<HTMLDivElement>(null); // 滾動容器的 ref
@@ -79,6 +98,10 @@ export const RecordList: React.FC<RecordListProps> = ({ onEdit }) => {
 		},
 		overscan: 5,
 	});
+
+	useEffect(() => {
+		rowVirtualizer.measure();
+	}, [processedRecords, rowVirtualizer]);
 
 	if (!context || !tripData) return null;
 
@@ -138,19 +161,28 @@ export const RecordList: React.FC<RecordListProps> = ({ onEdit }) => {
 									transform: `translateY(${virtualItem.start}px)`, // 將項目定位到正確的位置
 								}}
 							>
-								{record.isNewDay && (
-									<div className='flex items-center my-4'>
-										<div className='flex-grow border-t border-gray-300'></div>
-										<span className='mx-4 text-gray-600 text-sm font-semibold'>
-											{new Date(record.date).toLocaleDateString()}
-										</span>
-										<div className='flex-grow border-t border-gray-300'></div>
-									</div>
-								)}
+								{record.isNewDay &&
+									(record.isValid ? (
+										<div className='flex items-center my-4'>
+											<div className='flex-grow border-t border-gray-300'></div>
+											<span className='mx-4 text-gray-600 text-sm font-semibold'>
+												{new Date(record.date).toLocaleDateString()}
+											</span>
+											<div className='flex-grow border-t border-gray-300'></div>
+										</div>
+									) : (
+										<div className='flex items-center my-4'>
+											<div className='flex-grow border-t border-red-200'></div>
+											<span className='mx-4 text-red-500 text-sm font-semibold'>
+												無效帳目
+											</span>
+											<div className='flex-grow border-t border-red-200'></div>
+										</div>
+									))}
 								<div className='bg-white p-4 rounded-lg shadow-md flex items-center justify-between'>
 									<div className='flex-1'>
 										<p className='font-bold text-lg text-gray-800'>
-											{record.name}
+											{record.isValid ? '' : '[無效]'} {record.name}
 										</p>
 										<p className='text-sm text-gray-500 mt-1'>
 											由 {longStringSimplify(record.prePayAddress)} 墊付 $

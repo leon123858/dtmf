@@ -17,6 +17,14 @@ export const MoneyShare = () => {
 
 	if (!context || !tripData) return null;
 
+	if (!tripData.isValid) {
+		return (
+			<div className='text-center text-red-500 mt-12'>
+				注意: 包含待校正的帳目，請先校正後再進行結算。
+			</div>
+		);
+	}
+
 	if (tripData.moneyShare.length === 0) {
 		return (
 			<div className='text-center text-gray-500 mt-12'>

@@ -5,6 +5,7 @@ import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { Record } from '@/app/lib/types';
 import { useGraphQLClient } from '@/app/lib/tripApi/client';
 import { longStringSimplify } from '@/app/lib/utils';
+import { RecordCategory } from '../lib/tripApi/types';
 
 interface RecordModalProps {
 	onClose: () => void;
@@ -141,6 +142,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 			prePayAddress,
 			time: new Date(time).getTime().toString(),
 			shouldPayAddress,
+			extendPayMsg: [],
+			category: RecordCategory.NORMAL,
 		};
 
 		if (record) {
