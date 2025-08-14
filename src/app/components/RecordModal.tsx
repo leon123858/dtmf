@@ -117,10 +117,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 			: {}
 	);
 
-	const [updateRecord, { loading: updating, error: updateError }] =
-		useUpdateRecord(context?.tripId || '');
-	const [createRecord, { loading: creating, error: createError }] =
-		useCreateRecord(context?.tripId || '');
+	const [updateRecord, {}] = useUpdateRecord(context?.tripId || '');
+	const [createRecord, {}] = useCreateRecord(context?.tripId || '');
 
 	useEffect(() => {
 		const d = new Date(time);
@@ -149,30 +147,6 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 
 	if (!context) return null;
 	if (!tripData) return null;
-
-	if (creating) {
-		return <div className='text-center text-blue-500 mt-12'>新增中...</div>;
-	}
-	if (createError) {
-		console.error('Error creating record:', createError);
-		return (
-			<div className='text-center text-red-500 mt-12'>
-				新增失敗，請稍後再試。
-			</div>
-		);
-	}
-
-	if (updating) {
-		return <div className='text-center text-blue-500 mt-12'>更新中...</div>;
-	}
-	if (updateError) {
-		console.error('Error updating record:', updateError);
-		return (
-			<div className='text-center text-red-500 mt-12'>
-				更新失敗，請稍後再試。
-			</div>
-		);
-	}
 
 	const handleShouldPayToggle = (address: string) => {
 		setShouldPayAddress((prev) =>
@@ -227,7 +201,6 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 			category: splitMethod2RecordCategory(splitMethod),
 		};
 
-		onClose();
 		if (record) {
 			// Editing existing record
 			updateRecord({
@@ -235,18 +208,19 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 					recordId: record.id,
 					input: newRecordData,
 				},
-			}).catch((error) => {
-				console.error('Error updating record:', error);
-				setErrorText(
-					'更新失敗，請稍後再試。(' +
-						(error.message == 'invalid record input'
-							? '輸入含非法字符'
-							: error.message) +
-						')'
-				);
-				setShowError(true);
-				alert('更新失敗，請稍後再試。');
-			});
+			})
+				.then(() => onClose())
+				.catch((error) => {
+					console.error('Error updating record:', error);
+					setErrorText(
+						'創建失敗，請稍後再試。(' +
+							(error.message == 'invalid record input'
+								? '輸入含非法字符'
+								: error.message) +
+							')'
+					);
+					setShowError(true);
+				});
 		} else {
 			// Creating new record
 			createRecord({
@@ -254,18 +228,19 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 					tripId: tripData.id,
 					input: newRecordData,
 				},
-			}).catch((error) => {
-				console.error('Error creating record:', error);
-				setErrorText(
-					'新增失敗，請稍後再試。(' +
-						(error.message == 'invalid record input'
-							? '輸入含非法字符'
-							: error.message) +
-						')'
-				);
-				setShowError(true);
-				alert('更新失敗，請稍後再試。');
-			});
+			})
+				.then(() => onClose())
+				.catch((error) => {
+					console.error('Error creating record:', error);
+					setErrorText(
+						'新增失敗，請稍後再試。(' +
+							(error.message == 'invalid record input'
+								? '輸入含非法字符'
+								: error.message) +
+							')'
+					);
+					setShowError(true);
+				});
 		}
 	};
 
