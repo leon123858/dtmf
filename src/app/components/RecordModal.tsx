@@ -5,7 +5,8 @@ import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { Record } from '@/app/lib/types';
 import { useGraphQLClient } from '@/app/lib/tripApi/client';
 import { longStringSimplify } from '@/app/lib/utils';
-import { RecordCategory } from '../lib/tripApi/types';
+import { NewRecordInput, RecordCategory } from '../lib/tripApi/types';
+import { Decimal } from 'decimal.js';
 
 interface RecordModalProps {
 	onClose: () => void;
@@ -16,6 +17,22 @@ function curTimeWithNoSecond() {
 	const d = new Date();
 	d.setSeconds(0, 0);
 	return d.getTime();
+}
+
+enum SplitMethod {
+	AVERAGE = 'AVERAGE',
+	FIXED = 'FIXED',
+}
+
+function recordCategory2SplitMethod(category: RecordCategory): SplitMethod {
+	switch (category) {
+		case RecordCategory.NORMAL:
+			return SplitMethod.AVERAGE;
+		case RecordCategory.FIX:
+			return SplitMethod.FIXED;
+		default:
+			return SplitMethod.AVERAGE;
+	}
 }
 
 // ex: 2025-08-11T01:01
@@ -32,6 +49,29 @@ function myISOLocalString(date: Date): string {
 	return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
+function calculateCustomSplitSum(customSplit: {
+	[key: string]: number;
+}): Decimal {
+	// use Decimal.js for precise float arithmetic
+	if (!customSplit || Object.keys(customSplit).length === 0) {
+		return new Decimal(0);
+	}
+	return Object.values(customSplit).reduce((sum, value) => {
+		return sum.plus(new Decimal(value));
+	}, new Decimal(0));
+}
+
+function splitMethod2RecordCategory(splitMethod: SplitMethod): RecordCategory {
+	switch (splitMethod) {
+		case SplitMethod.AVERAGE:
+			return RecordCategory.NORMAL;
+		case SplitMethod.FIXED:
+			return RecordCategory.FIX;
+		default:
+			return RecordCategory.NORMAL;
+	}
+}
+
 export const RecordModal: React.FC<RecordModalProps> = ({
 	onClose,
 	record,
@@ -42,6 +82,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 	} = useGraphQLClient();
 
 	const context = useContext(SingleTripContext);
+	const [showError, setShowError] = useState(false);
+	const [errorText, setErrorText] = useState('');
 	const { data: tripData } = useTrip(context?.tripId || '');
 	const [name, setName] = useState(record?.name || '');
 	const [amount, setAmount] = useState(
@@ -59,6 +101,21 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 	const [formattedTime, setFormattedTime] = useState<string>(() => {
 		return myISOLocalString(new Date(curTimeWithNoSecond()));
 	});
+	const [splitMethod, setSplitMethod] = useState<SplitMethod>(
+		recordCategory2SplitMethod(record?.category || RecordCategory.NORMAL)
+	);
+	const [customSplit, setCustomSplit] = useState<{ [key: string]: number }>(
+		// Initialize with empty object or existing custom splits
+		record?.shouldPayAddress && record?.extendPayMsg
+			? record.shouldPayAddress.reduce(
+					(acc, addr, index) => ({
+						...acc,
+						[addr]: record.extendPayMsg[index] || 0,
+					}),
+					{}
+			  )
+			: {}
+	);
 
 	const [updateRecord, { loading: updating, error: updateError }] =
 		useUpdateRecord(context?.tripId || '');
@@ -79,6 +136,16 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 			console.error('Error formatting time:', error);
 		}
 	}, [time]);
+
+	// auto setShowError to false after 3 seconds
+	useEffect(() => {
+		if (showError) {
+			const timer = setTimeout(() => {
+				setShowError(false);
+			}, 3000);
+			return () => clearTimeout(timer);
+		}
+	}, [showError]);
 
 	if (!context) return null;
 	if (!tripData) return null;
@@ -120,6 +187,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 		const finalAmount = parseFloat(amount);
 		if (
 			isNaN(finalAmount) ||
+			finalAmount <= 0 ||
 			!name.trim() ||
 			!prePayAddress ||
 			shouldPayAddress.length === 0 ||
@@ -131,21 +199,35 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 				prePayAddress,
 				time,
 				shouldPayAddress,
+				customSplit,
+				finalAmount,
 			});
-			alert('請填寫所有欄位, 並確保金額有被分配。');
+
+			setErrorText('請填寫所有欄位, 並確保金額有被分配。');
+			setShowError(true);
 			return;
 		}
 
-		const newRecordData = {
+		if (
+			splitMethod === SplitMethod.FIXED &&
+			!calculateCustomSplitSum(customSplit).eq(new Decimal(Number(amount) || 0))
+		) {
+			setErrorText('自訂分攤金額總和有誤，請檢查後再提交。');
+			setShowError(true);
+			return;
+		}
+
+		const newRecordData: NewRecordInput = {
 			name,
 			amount: finalAmount,
 			prePayAddress,
 			time: new Date(time).getTime().toString(),
 			shouldPayAddress,
-			extendPayMsg: [],
-			category: RecordCategory.NORMAL,
+			extendPayMsg: shouldPayAddress.map((addr) => customSplit[addr] || 0),
+			category: splitMethod2RecordCategory(splitMethod),
 		};
 
+		onClose();
 		if (record) {
 			// Editing existing record
 			updateRecord({
@@ -155,13 +237,15 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 				},
 			}).catch((error) => {
 				console.error('Error updating record:', error);
-				alert(
+				setErrorText(
 					'更新失敗，請稍後再試。(' +
 						(error.message == 'invalid record input'
 							? '輸入含非法字符'
 							: error.message) +
 						')'
 				);
+				setShowError(true);
+				alert('更新失敗，請稍後再試。');
 			});
 		} else {
 			// Creating new record
@@ -172,16 +256,17 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 				},
 			}).catch((error) => {
 				console.error('Error creating record:', error);
-				alert(
+				setErrorText(
 					'新增失敗，請稍後再試。(' +
 						(error.message == 'invalid record input'
 							? '輸入含非法字符'
 							: error.message) +
 						')'
 				);
+				setShowError(true);
+				alert('更新失敗，請稍後再試。');
 			});
 		}
-		onClose();
 	};
 
 	const title = record ? '編輯帳目' : '新增帳目';
@@ -189,6 +274,15 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 
 	return (
 		<div className='fixed inset-0 bg-black bg-opacity-50 flex justify-center items-start p-4 z-30 overflow-y-auto'>
+			{showError && (
+				// show error on top of modal
+				<div
+					className='fixed top-5 left-1/2 -translate-x-1/2 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md z-50'
+					role='alert'
+				>
+					<span className='block sm:inline'>{errorText}</span>
+				</div>
+			)}
 			<div className='bg-white rounded-lg shadow-xl p-6 w-full max-w-md'>
 				<h2 className='text-2xl font-bold mb-4'>{title}</h2>
 				<form onSubmit={handleSubmit}>
@@ -283,6 +377,78 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 								</label>
 							))}
 						</div>
+						<div className='mb-4'>
+							<label
+								htmlFor='split-method'
+								className='block text-gray-700 text-sm font-bold mb-2'
+							>
+								分攤方式
+							</label>
+							<select
+								id='split-method'
+								value={splitMethod}
+								onChange={(e) => {
+									setSplitMethod(e.target.value as SplitMethod);
+									setCustomSplit({});
+								}}
+								className='shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500'
+							>
+								<option value={SplitMethod.AVERAGE}>均分</option>
+								<option value={SplitMethod.FIXED}>按金額</option>
+							</select>
+						</div>
+						{splitMethod === SplitMethod.FIXED && (
+							<div className='p-4 bg-gray-100 rounded-lg border border-gray-200'>
+								<h4 className='font-semibold mb-3 text-gray-800'>
+									自訂分攤金額
+								</h4>
+								<div className='space-y-3'>
+									{shouldPayAddress.map((addr) => (
+										<div
+											key={addr}
+											className='flex items-center justify-between'
+										>
+											<label
+												htmlFor={`split-${addr}`}
+												className='text-gray-700'
+											>
+												{longStringSimplify(addr)}
+											</label>
+											<input
+												id={`split-${addr}`}
+												type='number'
+												placeholder='0.00'
+												min='0'
+												step='1'
+												value={customSplit[addr] || ''}
+												onChange={(e) =>
+													setCustomSplit((prev) => ({
+														...prev,
+														[addr]: parseFloat(e.target.value) || 0,
+													}))
+												}
+												className='shadow-sm appearance-none border rounded w-32 py-1 px-2 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500'
+											/>
+										</div>
+									))}
+								</div>
+								<div className='mt-4 pt-3 border-t border-gray-300 flex justify-between text-sm font-medium'>
+									<span className='text-gray-600'>已分配總額:</span>
+									<span
+										className={
+											calculateCustomSplitSum(customSplit).eq(
+												new Decimal(Number(amount) || 0)
+											)
+												? 'text-green-600'
+												: 'text-red-600'
+										}
+									>
+										{calculateCustomSplitSum(customSplit).toFixed(2)} /{' '}
+										{Decimal(Number(amount) || 0).toFixed(2)}
+									</span>
+								</div>
+							</div>
+						)}
 					</div>
 					<div className='flex items-center justify-end space-x-3 mt-6'>
 						<button

@@ -1,11 +1,10 @@
-export interface Record {
-	id: string;
-	name: string;
-	amount: number;
-	prePayAddress: string;
-	time: string; // ISO 格式的時間字符串
-	shouldPayAddress: string[];
-}
+import {
+	RecordCategory as IRecordCategory,
+	Record as IRecord,
+} from './tripApi/types';
+
+export type Record = IRecord;
+export type RecordCategory = IRecordCategory;
 
 export interface MoneyShareItem {
 	input: {
