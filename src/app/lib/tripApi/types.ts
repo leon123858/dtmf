@@ -3,6 +3,7 @@ export type ID = string; // GraphQL ID 通常是字符串
 export enum RecordCategory {
 	NORMAL = 'NORMAL',
 	FIX = 'FIX',
+	PART = 'PART',
 }
 
 export interface Record {

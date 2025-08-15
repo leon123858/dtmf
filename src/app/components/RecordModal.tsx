@@ -2,11 +2,12 @@
 
 import React, { useState, useContext, useEffect } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
-import { Record } from '@/app/lib/types';
 import { useGraphQLClient } from '@/app/lib/tripApi/client';
 import { longStringSimplify } from '@/app/lib/utils';
 import { NewRecordInput, RecordCategory } from '../lib/tripApi/types';
 import { Decimal } from 'decimal.js';
+import { RecordModalExtend } from './RecordModalExtend';
+import { Record } from '../lib/types';
 
 interface RecordModalProps {
 	onClose: () => void;
@@ -19,9 +20,10 @@ function curTimeWithNoSecond() {
 	return d.getTime();
 }
 
-enum SplitMethod {
+export enum SplitMethod {
 	AVERAGE = 'AVERAGE',
 	FIXED = 'FIXED',
+	PART = 'PART',
 }
 
 function recordCategory2SplitMethod(category: RecordCategory): SplitMethod {
@@ -30,6 +32,8 @@ function recordCategory2SplitMethod(category: RecordCategory): SplitMethod {
 			return SplitMethod.AVERAGE;
 		case RecordCategory.FIX:
 			return SplitMethod.FIXED;
+		case RecordCategory.PART:
+			return SplitMethod.PART;
 		default:
 			return SplitMethod.AVERAGE;
 	}
@@ -49,7 +53,7 @@ function myISOLocalString(date: Date): string {
 	return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-function calculateCustomSplitSum(customSplit: {
+export function calculateCustomSplitSum(customSplit: {
 	[key: string]: number;
 }): Decimal {
 	// use Decimal.js for precise float arithmetic
@@ -67,6 +71,8 @@ function splitMethod2RecordCategory(splitMethod: SplitMethod): RecordCategory {
 			return RecordCategory.NORMAL;
 		case SplitMethod.FIXED:
 			return RecordCategory.FIX;
+		case SplitMethod.PART:
+			return RecordCategory.PART;
 		default:
 			return RecordCategory.NORMAL;
 	}
@@ -182,13 +188,25 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 			return;
 		}
 
-		if (
-			splitMethod === SplitMethod.FIXED &&
-			!calculateCustomSplitSum(customSplit).eq(new Decimal(Number(amount) || 0))
-		) {
-			setErrorText('自訂分攤金額總和有誤，請檢查後再提交。');
-			setShowError(true);
-			return;
+		switch (splitMethod) {
+			case SplitMethod.FIXED:
+				if (
+					!calculateCustomSplitSum(customSplit).eq(
+						new Decimal(Number(amount) || 0)
+					)
+				) {
+					setErrorText('自訂分攤金額總和有誤，請檢查後再提交。');
+					setShowError(true);
+					return;
+				}
+				break;
+			case SplitMethod.PART:
+				if (!calculateCustomSplitSum(customSplit).gt(0)) {
+					setErrorText('請至少分配一份金額。');
+					setShowError(true);
+					return;
+				}
+				break;
 		}
 
 		const newRecordData: NewRecordInput = {
@@ -370,60 +388,16 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 							>
 								<option value={SplitMethod.AVERAGE}>均分</option>
 								<option value={SplitMethod.FIXED}>按金額</option>
+								<option value={SplitMethod.PART}>按份數</option>
 							</select>
 						</div>
-						{splitMethod === SplitMethod.FIXED && (
-							<div className='p-4 bg-gray-100 rounded-lg border border-gray-200'>
-								<h4 className='font-semibold mb-3 text-gray-800'>
-									自訂分攤金額
-								</h4>
-								<div className='space-y-3'>
-									{shouldPayAddress.map((addr) => (
-										<div
-											key={addr}
-											className='flex items-center justify-between'
-										>
-											<label
-												htmlFor={`split-${addr}`}
-												className='text-gray-700'
-											>
-												{longStringSimplify(addr)}
-											</label>
-											<input
-												id={`split-${addr}`}
-												type='number'
-												placeholder='0.00'
-												min='0'
-												step='1'
-												value={customSplit[addr] || ''}
-												onChange={(e) =>
-													setCustomSplit((prev) => ({
-														...prev,
-														[addr]: parseFloat(e.target.value) || 0,
-													}))
-												}
-												className='shadow-sm appearance-none border rounded w-32 py-1 px-2 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500'
-											/>
-										</div>
-									))}
-								</div>
-								<div className='mt-4 pt-3 border-t border-gray-300 flex justify-between text-sm font-medium'>
-									<span className='text-gray-600'>已分配總額:</span>
-									<span
-										className={
-											calculateCustomSplitSum(customSplit).eq(
-												new Decimal(Number(amount) || 0)
-											)
-												? 'text-green-600'
-												: 'text-red-600'
-										}
-									>
-										{calculateCustomSplitSum(customSplit).toFixed(2)} /{' '}
-										{Decimal(Number(amount) || 0).toFixed(2)}
-									</span>
-								</div>
-							</div>
-						)}
+						<RecordModalExtend
+							method={splitMethod}
+							shouldPayAddress={shouldPayAddress}
+							amount={Number(amount) || 0}
+							customSplit={customSplit}
+							setCustomSplit={setCustomSplit}
+						/>
 					</div>
 					<div className='flex items-center justify-end space-x-3 mt-6'>
 						<button
