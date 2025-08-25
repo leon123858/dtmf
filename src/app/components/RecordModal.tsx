@@ -24,6 +24,7 @@ export enum SplitMethod {
 	AVERAGE = 'AVERAGE',
 	FIXED = 'FIXED',
 	PART = 'PART',
+	FIX_BEFORE_NORMAL = 'FIX_BEFORE_NORMAL',
 }
 
 function recordCategory2SplitMethod(category: RecordCategory): SplitMethod {
@@ -34,8 +35,25 @@ function recordCategory2SplitMethod(category: RecordCategory): SplitMethod {
 			return SplitMethod.FIXED;
 		case RecordCategory.PART:
 			return SplitMethod.PART;
+		case RecordCategory.FIX_BEFORE_NORMAL:
+			return SplitMethod.FIX_BEFORE_NORMAL;
 		default:
 			return SplitMethod.AVERAGE;
+	}
+}
+
+function splitMethod2RecordCategory(splitMethod: SplitMethod): RecordCategory {
+	switch (splitMethod) {
+		case SplitMethod.AVERAGE:
+			return RecordCategory.NORMAL;
+		case SplitMethod.FIXED:
+			return RecordCategory.FIX;
+		case SplitMethod.PART:
+			return RecordCategory.PART;
+		case SplitMethod.FIX_BEFORE_NORMAL:
+			return RecordCategory.FIX_BEFORE_NORMAL;
+		default:
+			return RecordCategory.NORMAL;
 	}
 }
 
@@ -61,21 +79,27 @@ export function calculateCustomSplitSum(customSplit: {
 		return new Decimal(0);
 	}
 	return Object.values(customSplit).reduce((sum, value) => {
-		return sum.plus(new Decimal(value));
+		const num = new Decimal(value || 0);
+		if (num.isNaN() || !num.isFinite()) {
+			return sum; // ignore invalid numbers
+		}
+		return sum.plus(num.abs());
 	}, new Decimal(0));
 }
 
-function splitMethod2RecordCategory(splitMethod: SplitMethod): RecordCategory {
-	switch (splitMethod) {
-		case SplitMethod.AVERAGE:
-			return RecordCategory.NORMAL;
-		case SplitMethod.FIXED:
-			return RecordCategory.FIX;
-		case SplitMethod.PART:
-			return RecordCategory.PART;
-		default:
-			return RecordCategory.NORMAL;
+export function countCustomSplitNotNegCnt(
+	addressList: string[],
+	customSplit: {
+		[key: string]: number;
 	}
+): number {
+	return addressList.filter((addr) => {
+		if (customSplit[addr] === undefined) {
+			// not exist means 0
+			return true;
+		}
+		return customSplit[addr] >= 0;
+	}).length;
 }
 
 export const RecordModal: React.FC<RecordModalProps> = ({
@@ -213,6 +237,24 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 					return;
 				}
 				break;
+			case SplitMethod.FIX_BEFORE_NORMAL:
+				if (
+					!new Decimal(Number(amount) || 0)
+						.minus(calculateCustomSplitSum(customSplit))
+						.gte(0)
+				) {
+					setErrorText('指定金額總和不可超過總金額，請檢查後再提交。');
+					setShowError(true);
+					isSubmittingRef.current = false;
+					return;
+				}
+				if (!(countCustomSplitNotNegCnt(shouldPayAddress, customSplit) > 0)) {
+					setErrorText('請至少一人均分剩餘金額。');
+					setShowError(true);
+					isSubmittingRef.current = false;
+					return;
+				}
+				break;
 		}
 
 		const newRecordData: NewRecordInput = {
@@ -330,6 +372,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 						<input
 							type='number'
 							value={amount}
+							min={0}
 							onChange={(e) => setAmount(e.target.value)}
 							className='shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline'
 							required
@@ -401,6 +444,9 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 								<option value={SplitMethod.AVERAGE}>均分</option>
 								<option value={SplitMethod.FIXED}>按金額</option>
 								<option value={SplitMethod.PART}>按份數</option>
+								<option value={SplitMethod.FIX_BEFORE_NORMAL}>
+									指定金額後均分
+								</option>
 							</select>
 						</div>
 						<RecordModalExtend

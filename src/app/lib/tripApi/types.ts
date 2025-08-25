@@ -4,6 +4,7 @@ export enum RecordCategory {
 	NORMAL = 'NORMAL',
 	FIX = 'FIX',
 	PART = 'PART',
+	FIX_BEFORE_NORMAL = 'FIX_BEFORE_NORMAL',
 }
 
 export interface Record {
