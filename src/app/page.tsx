@@ -1,4 +1,6 @@
+import Link from 'next/link';
 import { TripCreationForm } from '@/app/components/TripCreateForm';
+import { BookOpenIcon } from '@heroicons/react/24/solid';
 
 export const metadata = {
 	title: '旅遊分帳 | 輕鬆分攤旅途開銷',
@@ -27,22 +29,44 @@ export const metadata = {
 
 export default async function HomePage() {
 	return (
-		<div className='bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4'>
-			<div className='w-full max-w-md text-center'>
-				<h1 className='text-4xl md:text-5xl font-bold text-gray-800 mb-4'>
-					旅遊分帳
-				</h1>
-				<p className='text-lg text-gray-600 mb-8'>
-					輕鬆、公平地分攤旅途中的每一筆花費
-					<br />
-					<span className='text-sm text-gray-400'>
-						這是<strong>力量兔兔</strong>為您提供的便捷工具。
-					</span>
-				</p>
+		<div className='bg-slate-50 min-h-screen flex flex-col'>
+			<header className='w-full p-4 border-b border-slate-200 bg-white/80 backdrop-blur-sm sticky top-0 z-10'>
+				<nav className='max-w-4xl mx-auto flex items-center justify-between'>
+					<Link
+						href='/history'
+						className='flex items-center justify-center gap-2 text-slate-600 font-semibold p-2 rounded-lg hover:bg-slate-200 transition-colors'
+					>
+						<BookOpenIcon className='w-5 h-5' />
+						<span>歷史紀錄</span>
+					</Link>
+
+					<h1 className='text-lg sm:text-xl font-bold text-slate-800 hidden sm:block'>
+						<span className='hidden sm:inline'>力量兔兔 | </span>
+						<span>旅遊分帳</span>
+					</h1>
+				</nav>
+			</header>
+
+			<main className='flex-grow flex flex-col items-center justify-center p-4'>
+				<div className='w-full max-w-md text-center'>
+					<h2 className='text-4xl md:text-5xl font-bold text-gray-800 mb-4'>
+						旅遊分帳
+					</h2>
+					<p className='text-lg text-gray-500 mb-8'>
+						{/* 手機上顯示的文字 */}
+						<span className='sm:hidden'>力量兔兔 | 旅遊分帳</span>
+
+						{/* sm 及以上尺寸螢幕顯示的文字 */}
+						<span className='hidden sm:block'>
+							輕鬆、公平地分攤旅途中的每一筆花費。
+						</span>
+					</p>
+				</div>
+
 				<TripCreationForm />
-			</div>
-			<br className='w-full border-t border-gray-300 my-8' />
-			<footer className='w-full py-5 text-center text-sm text-gray-500'>
+			</main>
+
+			<footer className='w-full py-6 text-center text-sm text-gray-500'>
 				<p className='mb-2'>這是一個開源專案，歡迎一同貢獻與改善。</p>
 				<a
 					href='https://github.com/leon123858/dtmf'
