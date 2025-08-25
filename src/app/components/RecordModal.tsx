@@ -88,6 +88,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 	} = useGraphQLClient();
 
 	const context = useContext(SingleTripContext);
+	const isSubmittingRef = React.useRef(false);
 	const [showError, setShowError] = useState(false);
 	const [errorText, setErrorText] = useState('');
 	const { data: tripData } = useTrip(context?.tripId || '');
@@ -164,6 +165,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 
 	const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
+		if (isSubmittingRef.current) return; // Prevent multiple submissions
+		isSubmittingRef.current = true;
 		const finalAmount = parseFloat(amount);
 		if (
 			isNaN(finalAmount) ||
@@ -185,6 +188,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 
 			setErrorText('請填寫所有欄位, 並確保金額有被分配。');
 			setShowError(true);
+			isSubmittingRef.current = false;
 			return;
 		}
 
@@ -197,6 +201,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 				) {
 					setErrorText('自訂分攤金額總和有誤，請檢查後再提交。');
 					setShowError(true);
+					isSubmittingRef.current = false;
 					return;
 				}
 				break;
@@ -204,6 +209,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 				if (!calculateCustomSplitSum(customSplit).gt(0)) {
 					setErrorText('請至少分配一份金額。');
 					setShowError(true);
+					isSubmittingRef.current = false;
 					return;
 				}
 				break;
@@ -238,6 +244,9 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 							')'
 					);
 					setShowError(true);
+				})
+				.finally(() => {
+					isSubmittingRef.current = false;
 				});
 		} else {
 			// Creating new record
@@ -258,6 +267,9 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 							')'
 					);
 					setShowError(true);
+				})
+				.finally(() => {
+					isSubmittingRef.current = false;
 				});
 		}
 	};
