@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState, useContext } from 'react';
-import { useRouter } from 'next/navigation';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { useGraphQLClient } from '../lib/tripApi/client';
 import { Message } from './Message';
+import { SideBar } from './SideBar';
 
 interface HeaderProps {
 	onAddClick: () => void;
@@ -22,8 +22,8 @@ export const Header: React.FC<HeaderProps> = ({ onAddClick }) => {
 		},
 	} = useGraphQLClient();
 
-	const router = useRouter();
 	const [isCopied, setIsCopied] = useState(false);
+	const [isOpen, setIsOpen] = useState(false);
 	// const [isSyncing, setIsSyncing] = useState(false);
 
 	const [isAlertVisible, setIsAlertVisible] = useState(false);
@@ -121,17 +121,7 @@ export const Header: React.FC<HeaderProps> = ({ onAddClick }) => {
 			{/* <Message variant={'info'} isShow={isSyncing}>
 				<span>其他人更新中...</span>
 			</Message> */}
-			<div className='flex items-center space-x-3'>
-				<button
-					onClick={() => router.push('/')}
-					className='text-blue-500 hover:text-blue-700 text-2xl font-bold'
-				>
-					🏠
-				</button>
-				<h1 className='text-3xl font-bold text-gray-800 truncate'>
-					{tripData.name}
-				</h1>
-			</div>
+			<SideBar isOpen={isOpen} setIsOpen={setIsOpen} name={tripData.name} />
 			<div className='flex items-center space-x-2'>
 				<button
 					onClick={handleShare}

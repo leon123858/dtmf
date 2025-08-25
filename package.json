@@ -12,6 +12,7 @@
 	"dependencies": {
 		"@apollo/client": "^3.13.8",
 		"@apollo/client-integration-nextjs": "^0.12.2",
+		"@heroicons/react": "^2.2.0",
 		"@tanstack/react-virtual": "^3.13.12",
 		"class-variance-authority": "^0.7.1",
 		"decimal.js": "^10.6.0",

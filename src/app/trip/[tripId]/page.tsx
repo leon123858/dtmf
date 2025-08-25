@@ -13,6 +13,7 @@ import { RecordList } from '@/app/components/RecordList';
 import { MoneyShare } from '@/app/components/MoneyShare';
 import { AddressList } from '@/app/components/AddressList';
 import { RecordModal } from '@/app/components/RecordModal';
+import { SaveTripInStorage } from '@/app/lib/storage/trip';
 
 export default function TripPage() {
 	const router = useRouter();
@@ -36,10 +37,14 @@ export default function TripPage() {
 
 	// 更新網頁標題
 	useEffect(() => {
-		if (tripData) {
+		if (tripData && tripData.name && tripId) {
 			document.title = `${tripData.name} | 旅遊分帳`;
+			SaveTripInStorage({
+				id: tripId,
+				name: tripData.name,
+			});
 		}
-	}, [tripData]);
+	}, [tripData, tripId]);
 
 	const openAddModal = () => {
 		setEditingRecord(null);
