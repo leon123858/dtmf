@@ -1,14 +1,9 @@
-'use server';
-
 import Link from 'next/link';
 import { ArrowLeftIcon } from '@heroicons/react/24/solid';
 
-export default async function CustomErrPage({
-	searchParams,
-}: {
-	searchParams: { errMsg?: string };
-}) {
-	const msg = searchParams.errMsg || '發生未知錯誤，請稍後再試。';
+// @ts-expect-error: searchParams is embedded by Next.js
+export default async function CustomErrPage({ searchParams }) {
+	const msg = searchParams?.errMsg || '發生未知錯誤，請稍後再試。';
 
 	return (
 		<div className='bg-slate-50 min-h-screen flex flex-col items-center justify-center p-4'>
