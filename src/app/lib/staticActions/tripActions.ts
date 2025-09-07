@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import { createTripHttp } from '../tripApi/http';
 import { NewTripInput } from '../tripApi/types';
 
+const ERROR_MESSAGE = '創建新旅程失敗，請稍後再試。';
+
 export async function createTripAction(formData: FormData) {
 	// 從表單數據中獲取 tripName
 	const tripName = formData.get('tripName');
@@ -12,13 +14,22 @@ export async function createTripAction(formData: FormData) {
 		throw new Error('旅程名稱不能為空。');
 	}
 
-	const ret = await createTripHttp({
-		name: tripName.trim(),
-	} as NewTripInput);
+	try {
+		const ret = await createTripHttp({
+			name: tripName.trim(),
+		} as NewTripInput);
 
-	if (!ret || !ret.createTrip || !ret.createTrip.id) {
-		throw new Error('無法創建新旅程。');
+		if (!ret || !ret.createTrip || !ret.createTrip.id) {
+			throw new Error('創建新旅程失敗，請稍後再試。');
+		}
+
+		redirect(`/trip/${ret.createTrip.id}`);
+	} catch (error) {
+		console.error('創建新旅程時出錯:', error);
+		if (error && error instanceof Error) {
+			redirect(`/err?errMsg=${encodeURIComponent(error.message)}`);
+		} else {
+			redirect(`/err?errMsg=${encodeURIComponent(ERROR_MESSAGE)}`);
+		}
 	}
-
-	redirect(`/trip/${ret.createTrip.id}`);
 }
