@@ -30,6 +30,7 @@ const splitLink = split(
 
 const client = new ApolloClient({
 	link: splitLink,
+	connectToDevTools: false,
 	devtools: {
 		enabled: false,
 	},
