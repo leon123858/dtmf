@@ -71,12 +71,19 @@ export const AddressList = () => {
 
 	const handleRemoveAddress = (address: string) => {
 		if (!address) return;
-		removeAddress({
-			variables: {
-				tripId: context.tripId,
-				address,
-			},
-		});
+
+		const isConfirmed = window.confirm(
+			'確定要移除此成員嗎？\n\n警告: 此操作將會刪除所有與該成員相關的交易紀錄，且無法復原。'
+		);
+
+		if (isConfirmed) {
+			removeAddress({
+				variables: {
+					tripId: context.tripId,
+					address,
+				},
+			});
+		}
 	};
 
 	return (
