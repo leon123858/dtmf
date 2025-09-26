@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { useGraphQLClient } from '../lib/tripApi/client';
 import { longStringSimplify } from '../lib/utils';
@@ -13,6 +13,7 @@ export const AddressList = () => {
 
 	const [newAddress, setNewAddress] = useState('');
 	const [isAdding, setIsAdding] = useState(false);
+	const [showError, setShowError] = useState(false);
 
 	const context = useContext(SingleTripContext);
 	const { data: tripData } = useTrip(context?.tripId || '');
@@ -21,6 +22,16 @@ export const AddressList = () => {
 		useCreateAddress(context?.tripId || '');
 	const [removeAddress, { loading: removing, error: removeError }] =
 		useDeleteAddress(context?.tripId || '');
+
+	// auto setShowError to false after 3 seconds
+	useEffect(() => {
+		if (showError) {
+			const timer = setTimeout(() => {
+				setShowError(false);
+			}, 3000);
+			return () => clearTimeout(timer);
+		}
+	}, [showError]);
 
 	if (!context || !tripData) return null;
 
@@ -44,15 +55,6 @@ export const AddressList = () => {
 	}
 	if (removeError) {
 		console.error('Error removing address:', removeError);
-		return (
-			<div className='text-center text-red-500 mt-12'>
-				移除失敗，請稍後再試。(
-				{removeError.message == 'invalid address'
-					? '輸入含非法字符'
-					: removeError.message}
-				)
-			</div>
-		);
 	}
 
 	const handleAddAddress = () => {
@@ -72,22 +74,37 @@ export const AddressList = () => {
 	const handleRemoveAddress = (address: string) => {
 		if (!address) return;
 
-		const isConfirmed = window.confirm(
-			'確定要移除此成員嗎？\n\n警告: 此操作將會刪除所有該成員墊付的交易紀錄，且無法復原。'
-		);
-
-		if (isConfirmed) {
-			removeAddress({
-				variables: {
-					tripId: context.tripId,
-					address,
-				},
+		removeAddress({
+			variables: {
+				tripId: context.tripId,
+				address,
+			},
+		})
+			.then(() => {
+				setShowError(false);
+			})
+			.catch(() => {
+				setShowError(true);
 			});
-		}
 	};
 
 	return (
 		<div className='bg-white p-4 rounded-lg shadow-md'>
+			{showError && (
+				// show error on top of modal
+				<div
+					className='fixed top-5 left-1/2 -translate-x-1/2 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md z-50'
+					role='alert'
+				>
+					<span className='block sm:inline'>
+						{removeError?.message == 'invalid address'
+							? '輸入含非法字符'
+							: removeError?.message.includes('SQL')
+							? '不可移除含關聯數據的用戶'
+							: '未預期錯誤，請稍後再試...' + removeError?.message}
+					</span>
+				</div>
+			)}
 			<h2 className='text-xl font-bold mb-4 text-gray-800'>成員列表</h2>
 			<div className='space-y-2 mb-4'>
 				{tripData.addressList.map((address) => (
