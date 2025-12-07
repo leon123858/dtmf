@@ -19,7 +19,7 @@
 		"graphql": "^16.11.0",
 		"graphql-ws": "^6.0.5",
 		"lucide-react": "^0.513.0",
-		"next": "15.3.3",
+		"next": "15.3.6",
 		"react": "^19.0.0",
 		"react-dom": "^19.0.0"
 	},
