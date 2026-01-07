@@ -48,6 +48,11 @@ export interface NewRecordInput {
 	category?: RecordCategory;
 }
 
+export interface EditRecordInput {
+	old: NewRecordInput;
+	new: NewRecordInput;
+}
+
 export interface NewTripInput {
 	name: string;
 }
@@ -90,7 +95,7 @@ export interface CreateRecordMutationData {
 
 export interface UpdateRecordMutationVariables {
 	recordId: ID;
-	input: NewRecordInput;
+	input: EditRecordInput;
 }
 
 export interface UpdateRecordMutationData {

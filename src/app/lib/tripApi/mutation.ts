@@ -35,7 +35,7 @@ export const CREATE_RECORD = gql`
 `;
 
 export const UPDATE_RECORD = gql`
-	mutation UpdateRecord($recordId: ID!, $input: NewRecord!) {
+	mutation UpdateRecord($recordId: ID!, $input: EditRecord!) {
 		updateRecord(recordId: $recordId, input: $input) {
 			id
 			name

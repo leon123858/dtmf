@@ -148,6 +148,16 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 			: {}
 	);
 
+	const [oldRecordData, {}] = useState<NewRecordInput>({
+		name,
+		amount: parseFloat(amount) || 0,
+		prePayAddress,
+		time: new Date(time).getTime().toString(),
+		shouldPayAddress,
+		extendPayMsg: shouldPayAddress.map((addr) => customSplit[addr] || 0),
+		category: splitMethod2RecordCategory(splitMethod),
+	});
+
 	const [updateRecord, {}] = useUpdateRecord(context?.tripId || '');
 	const [createRecord, {}] = useCreateRecord(context?.tripId || '');
 
@@ -272,7 +282,10 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 			updateRecord({
 				variables: {
 					recordId: record.id,
-					input: newRecordData,
+					input: {
+						old: oldRecordData,
+						new: newRecordData,
+					},
 				},
 			})
 				.then(() => onClose())
