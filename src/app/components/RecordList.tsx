@@ -194,7 +194,7 @@ export const RecordList: React.FC<RecordListProps> = ({ onEdit }) => {
 												record.shouldPayAddress
 													.map((addr) => longStringSimplify(addr))
 													.join(', '),
-												30
+												20
 											)}
 										</p>
 									</div>
