@@ -29,6 +29,7 @@ export const RecordModalExtend: React.FC<RecordModalExtendProps> = ({
 	switch (method) {
 		case SplitMethod.AVERAGE:
 			return <div></div>;
+		case SplitMethod.TRANSFER:
 		case SplitMethod.FIXED:
 			return (
 				<div className='p-4 bg-gray-100 rounded-lg border border-gray-200'>

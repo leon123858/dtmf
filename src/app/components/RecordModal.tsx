@@ -25,6 +25,7 @@ export enum SplitMethod {
 	FIXED = 'FIXED',
 	PART = 'PART',
 	FIX_BEFORE_NORMAL = 'FIX_BEFORE_NORMAL',
+	TRANSFER = 'TRANSFER',
 }
 
 function recordCategory2SplitMethod(category: RecordCategory): SplitMethod {
@@ -37,6 +38,8 @@ function recordCategory2SplitMethod(category: RecordCategory): SplitMethod {
 			return SplitMethod.PART;
 		case RecordCategory.FIX_BEFORE_NORMAL:
 			return SplitMethod.FIX_BEFORE_NORMAL;
+		case RecordCategory.TRANSFER:
+			return SplitMethod.TRANSFER;
 		default:
 			return SplitMethod.AVERAGE;
 	}
@@ -52,6 +55,8 @@ function splitMethod2RecordCategory(splitMethod: SplitMethod): RecordCategory {
 			return RecordCategory.PART;
 		case SplitMethod.FIX_BEFORE_NORMAL:
 			return RecordCategory.FIX_BEFORE_NORMAL;
+		case SplitMethod.TRANSFER:
+			return RecordCategory.TRANSFER;
 		default:
 			return RecordCategory.NORMAL;
 	}
@@ -227,6 +232,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 		}
 
 		switch (splitMethod) {
+			case SplitMethod.TRANSFER:
 			case SplitMethod.FIXED:
 				if (
 					!calculateCustomSplitSum(customSplit).eq(
@@ -460,6 +466,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 								<option value={SplitMethod.FIX_BEFORE_NORMAL}>
 									指定金額後均分
 								</option>
+								<option value={SplitMethod.TRANSFER}>轉帳</option>
 							</select>
 						</div>
 						<RecordModalExtend
