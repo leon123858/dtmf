@@ -45,7 +45,7 @@ export const RecordModalExtend: React.FC<RecordModalExtendProps> = ({
 									type='number'
 									placeholder='0.00'
 									min='0'
-									step='1'
+									step='0.01'
 									value={customSplit[addr] || ''}
 									onChange={(e) =>
 										setCustomSplit((prev) => ({
@@ -90,7 +90,7 @@ export const RecordModalExtend: React.FC<RecordModalExtendProps> = ({
 									type='number'
 									placeholder='0'
 									min='0'
-									step='1'
+									step='0.01'
 									value={customSplit[addr] || ''}
 									onChange={(e) =>
 										setCustomSplit((prev) => ({
@@ -132,7 +132,7 @@ export const RecordModalExtend: React.FC<RecordModalExtendProps> = ({
 									type='number'
 									placeholder='僅參與均分'
 									min='0'
-									step='1'
+									step='0.01'
 									value={Math.abs(customSplit[addr]) || ''}
 									onChange={(e) =>
 										setCustomSplit((prev) => {
