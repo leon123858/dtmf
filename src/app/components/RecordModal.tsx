@@ -466,7 +466,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 								<option value={SplitMethod.FIX_BEFORE_NORMAL}>
 									指定金額後均分
 								</option>
-								<option value={SplitMethod.TRANSFER}>轉帳</option>
+								<option value={SplitMethod.TRANSFER}>還款</option>
 							</select>
 						</div>
 						<RecordModalExtend
