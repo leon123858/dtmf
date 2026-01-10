@@ -474,7 +474,9 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 											if (inputItem) {
 												return {
 													...pre,
-													[cur.output.address]: inputItem.amount,
+													[cur.output.address]: Decimal(
+														inputItem.amount
+													).toFixed(2),
 												};
 											}
 											return pre;
