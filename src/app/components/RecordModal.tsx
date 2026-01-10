@@ -126,7 +126,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 	const { data: tripData } = useTrip(context?.tripId || '');
 	const [name, setName] = useState(record?.name || '');
 	const [amount, setAmount] = useState(
-		record?.amount ? record.amount.toString() : ''
+		record?.amount ? Decimal(record.amount).toFixed(2) : ''
 	);
 	const [prePayAddress, setPrePayAddress] = useState(
 		record?.prePayAddress || tripData?.addressList[0] || ''
@@ -149,7 +149,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 			? record.shouldPayAddress.reduce(
 					(acc, addr, index) => ({
 						...acc,
-						[addr]: record.extendPayMsg[index] || 0,
+						[addr]:
+							parseFloat(Decimal(record.extendPayMsg[index]).toFixed(2)) || 0,
 					}),
 					{}
 			  )
