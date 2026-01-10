@@ -33,7 +33,9 @@ export default function TripPage() {
 	// 將旅程狀態存在本地，以便編輯
 	const [activeTab, setActiveTab] = useState('records');
 	const [showAddRecordModal, setShowAddRecordModal] = useState(false);
-	const [editingRecord, setEditingRecord] = useState<Record | null>(null);
+	const [editingRecord, setEditingRecord] = useState<
+		Record | Omit<Record, 'id' | 'time' | 'isValid'> | null
+	>(null);
 
 	// 更新網頁標題
 	useEffect(() => {
@@ -51,7 +53,9 @@ export default function TripPage() {
 		setShowAddRecordModal(true);
 	};
 
-	const openEditModal = (record: Record) => {
+	const openEditModal = (
+		record: Record | Omit<Record, 'id' | 'time' | 'isValid'>
+	) => {
 		setEditingRecord(structuredClone(record)); // 使用 structuredClone 確保不會修改原始資料
 		setShowAddRecordModal(true);
 	};
@@ -91,7 +95,7 @@ export default function TripPage() {
 					<TabBar activeTab={activeTab} setActiveTab={setActiveTab} />
 					<main className='mt-4'>
 						{activeTab === 'records' && <RecordList onEdit={openEditModal} />}
-						{activeTab === 'share' && <MoneyShare />}
+						{activeTab === 'share' && <MoneyShare onRepay={openEditModal} />}
 						{activeTab === 'members' && <AddressList />}
 					</main>
 				</div>

@@ -4,14 +4,17 @@ import React, { useState, useContext, useEffect } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { useGraphQLClient } from '@/app/lib/tripApi/client';
 import { longStringSimplify } from '@/app/lib/utils';
-import { NewRecordInput, RecordCategory } from '../lib/tripApi/types';
+import { NewRecordInput, RecordCategory, ID } from '../lib/tripApi/types';
 import { Decimal } from 'decimal.js';
 import { RecordModalExtend } from './RecordModalExtend';
 import { Record } from '../lib/types';
 
 interface RecordModalProps {
 	onClose: () => void;
-	record: Record | null; // The record being edited, or null for a new one
+	record:
+		| Record // edit
+		| (Omit<Record, 'id' | 'time' | 'isValid'> & { id?: ID; time?: string }) // payback
+		| null; // create
 }
 
 function curTimeWithNoSecond() {
@@ -283,7 +286,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 			category: splitMethod2RecordCategory(splitMethod),
 		};
 
-		if (record) {
+		if (record?.id && record.id.length > 0) {
 			// Editing existing record
 			updateRecord({
 				variables: {
@@ -462,7 +465,32 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 								value={splitMethod}
 								onChange={(e) => {
 									setSplitMethod(e.target.value as SplitMethod);
-									setCustomSplit({});
+									// default value for each split method
+									if (e.target.value === SplitMethod.TRANSFER) {
+										const tmp = tripData.moneyShare.reduce((pre, cur) => {
+											const inputItem = cur.input.find(
+												(item) => item.address === prePayAddress
+											);
+											if (inputItem) {
+												return {
+													...pre,
+													[cur.output.address]: inputItem.amount,
+												};
+											}
+											return pre;
+										}, {}) as {
+											[key: string]: number;
+										};
+										if (Object.keys(tmp).length == 0) {
+											setErrorText('該用戶尚無還款需求');
+											setShowError(true);
+										}
+										setCustomSplit(tmp);
+										setShouldPayAddress(Object.keys(tmp));
+										setAmount(calculateCustomSplitSum(tmp).toFixed(2));
+									} else {
+										setCustomSplit({});
+									}
 								}}
 								className='shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500'
 							>
@@ -472,7 +500,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 								<option value={SplitMethod.FIX_BEFORE_NORMAL}>
 									指定金額後均分
 								</option>
-								<option value={SplitMethod.TRANSFER}>還款</option>
+								<option value={SplitMethod.TRANSFER}>自動還款</option>
 							</select>
 						</div>
 						<RecordModalExtend

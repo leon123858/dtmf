@@ -4,8 +4,13 @@ import React, { useContext } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { useGraphQLClient } from '@/app/lib/tripApi/client';
 import { longStringSimplify } from '@/app/lib/utils';
+import { Record, RecordCategory } from '../lib/tripApi/types';
 
-export const MoneyShare = () => {
+interface MoneyShareProps {
+	onRepay: (record: Omit<Record, 'id' | 'time' | 'isValid'>) => void;
+}
+
+export const MoneyShare: React.FC<MoneyShareProps> = ({ onRepay }) => {
 	const {
 		queries: { useTrip },
 	} = useGraphQLClient();
@@ -37,6 +42,22 @@ export const MoneyShare = () => {
 		return new Promise((resolve) => {
 			setTimeout(resolve, seconds * 1000);
 		});
+	};
+
+	const handleRepayClick = (
+		payerAddress: string,
+		receiverAddress: string,
+		amount: number
+	) => {
+		const repayRecord: Omit<Record, 'id' | 'time' | 'isValid'> = {
+			name: `${payerAddress} payback to ${receiverAddress}`,
+			amount: amount,
+			prePayAddress: payerAddress,
+			shouldPayAddress: [receiverAddress],
+			category: RecordCategory.TRANSFER,
+			extendPayMsg: [amount],
+		};
+		onRepay(repayRecord);
 	};
 
 	return (
@@ -84,6 +105,18 @@ export const MoneyShare = () => {
 									{longStringSimplify(inputItem.address)}
 								</span>
 								<div className='flex items-center space-x-2'>
+									<button
+										onClick={() =>
+											handleRepayClick(
+												inputItem.address,
+												tx.output.address,
+												inputItem.amount
+											)
+										}
+										className='bg-blue-500 hover:bg-blue-700 text-white text-sm font-bold py-1 px-2 rounded-lg transition duration-300'
+									>
+										payback
+									</button>
 									<span className='text-lg font-bold text-red-600'>支付</span>
 									<span className='text-sm text-red-500'>
 										${inputItem.amount.toFixed(2)}
