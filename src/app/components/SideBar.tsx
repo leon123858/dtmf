@@ -42,7 +42,7 @@ export const SideBar: React.FC<SideBarProps> = ({
 			icon: <QuestionMarkCircleIcon className='h-6 w-6' />,
 			text: '提案',
 			func: () => {
-				window.open('https://github.com/leon123858/dtmf/issues', '_blank');
+				window.open('https://forms.gle/RJgDWsx2wCrha3TN8', '_blank');
 			},
 		},
 	];
