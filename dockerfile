@@ -16,8 +16,8 @@ COPY . .
 # 停用 Next.js 的匿名遙測回報
 ENV NEXT_TELEMETRY_DISABLED=1
 # Backend URL
-ENV NEXT_PUBLIC_API_HTTP_URL='https://powerbunny.xyz'
-ENV NEXT_PUBLIC_API_WS_URL='wss://powerbunny.xyz'
+ENV NEXT_PUBLIC_API_HTTP_URL='https://powercapibara.site'
+ENV NEXT_PUBLIC_API_WS_URL='wss://powercapibara.site'
 
 # 執行建置命令
 RUN npm run build
