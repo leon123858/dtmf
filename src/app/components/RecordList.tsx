@@ -185,14 +185,14 @@ export const RecordList: React.FC<RecordListProps> = ({ onEdit }) => {
 											{record.isValid ? '' : '[無效]'} {record.name}
 										</p>
 										<p className='text-sm text-gray-500 mt-1'>
-											由 {longStringSimplify(record.prePayAddress)} 墊付 $
+											由 {longStringSimplify(record.prePayAddress.name)} 墊付 $
 											{record.amount.toLocaleString()}
 										</p>
 										<p className='text-sm text-gray-500 mt-1'>
 											分攤人:{' '}
 											{longStringSimplify(
 												record.shouldPayAddress
-													.map((addr) => longStringSimplify(addr))
+													.map((addr) => longStringSimplify(addr.name))
 													.join(', '),
 												20
 											)}

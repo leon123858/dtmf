@@ -14,6 +14,7 @@ import {
 	UPDATE_RECORD,
 	REMOVE_RECORD,
 	CREATE_ADDRESS,
+	UPDATE_ADDRESS,
 	DELETE_ADDRESS,
 } from './mutation';
 import {
@@ -21,6 +22,7 @@ import {
 	SUB_RECORD_DELETE,
 	SUB_RECORD_UPDATE,
 	SUB_ADDRESS_CREATE,
+	SUB_ADDRESS_UPDATE,
 	SUB_ADDRESS_DELETE,
 } from './subscription';
 import {
@@ -40,6 +42,8 @@ import {
 	RemoveRecordMutationData,
 	CreateAddressMutationVariables,
 	CreateAddressMutationData,
+	UpdateAddressMutationVariables,
+	UpdateAddressMutationData,
 	DeleteAddressMutationVariables,
 	DeleteAddressMutationData,
 	SubRecordCreateSubscriptionVariables,
@@ -50,6 +54,8 @@ import {
 	SubRecordUpdateSubscriptionData,
 	SubAddressCreateSubscriptionVariables,
 	SubAddressCreateSubscriptionData,
+	SubAddressUpdateSubscriptionVariables,
+	SubAddressUpdateSubscriptionData,
 	SubAddressDeleteSubscriptionVariables,
 	SubAddressDeleteSubscriptionData,
 } from './types';
@@ -90,6 +96,9 @@ interface TripGraphQLClient {
 			CreateAddressMutationData,
 			CreateAddressMutationVariables
 		>;
+		useUpdateAddress: (
+			tripId: ID
+		) => MutationTuple<UpdateAddressMutationData, UpdateAddressMutationVariables>;
 		useDeleteAddress: (
 			tripId: ID
 		) => MutationTuple<
@@ -110,6 +119,9 @@ interface TripGraphQLClient {
 		useSubAddressCreate: (
 			tripId: ID
 		) => SubscriptionResult<SubAddressCreateSubscriptionData>;
+		useSubAddressUpdate: (
+			tripId: ID
+		) => SubscriptionResult<SubAddressUpdateSubscriptionData>;
 		useSubAddressDelete: (
 			tripId: ID
 		) => SubscriptionResult<SubAddressDeleteSubscriptionData>;
@@ -265,8 +277,10 @@ export const useGraphQLClient = (): TripGraphQLClient => {
 								variables: { tripId },
 							});
 							if (existingTrip && data?.createAddress) {
-								const curAddressList = existingTrip.trip?.addressList || [];
-								if (curAddressList.includes(data.createAddress)) {
+								const curAddressList = existingTrip.trip?.addresses || [];
+								if (
+									curAddressList.some(({ id }) => id === data.createAddress.id)
+								) {
 									// 如果地址已存在，則不進行更新
 									return;
 								}
@@ -274,13 +288,42 @@ export const useGraphQLClient = (): TripGraphQLClient => {
 									...existingTrip,
 									trip: {
 										...existingTrip.trip,
-										addressList: [...curAddressList, data.createAddress],
+										addresses: [...curAddressList, data.createAddress],
 									},
 								};
 								cache.writeQuery({
 									query: GET_TRIP,
 									variables: { tripId },
 									data: updatedTrip,
+								});
+							}
+						},
+					}
+				),
+			useUpdateAddress: (tripId: ID) =>
+				useMutation<UpdateAddressMutationData, UpdateAddressMutationVariables>(
+					UPDATE_ADDRESS,
+					{
+						update: (cache, { data }) => {
+							const existingTrip = cache.readQuery<TripQueryData>({
+								query: GET_TRIP,
+								variables: { tripId },
+							});
+							if (existingTrip?.trip && data?.updateAddress) {
+								cache.writeQuery({
+									query: GET_TRIP,
+									variables: { tripId },
+									data: {
+										...existingTrip,
+										trip: {
+											...existingTrip.trip,
+											addresses: existingTrip.trip.addresses.map((address) =>
+												address.id === data.updateAddress.id
+													? data.updateAddress
+													: address
+											),
+										},
+									},
 								});
 							}
 						},
@@ -298,14 +341,14 @@ export const useGraphQLClient = (): TripGraphQLClient => {
 							});
 							if (existingTrip && data?.deleteAddress) {
 								const updatedAddressList =
-									existingTrip.trip?.addressList.filter(
-										(address) => address !== data.deleteAddress
+									existingTrip.trip?.addresses.filter(
+										(address) => address.id !== data.deleteAddress.id
 									);
 								const updatedTrip = {
 									...existingTrip,
 									trip: {
 										...existingTrip.trip,
-										addressList: updatedAddressList || [],
+										addresses: updatedAddressList || [],
 									},
 								};
 								cache.writeQuery({
@@ -345,6 +388,13 @@ export const useGraphQLClient = (): TripGraphQLClient => {
 					SubAddressCreateSubscriptionData,
 					SubAddressCreateSubscriptionVariables
 				>(SUB_ADDRESS_CREATE, {
+					variables: { tripId },
+				}),
+			useSubAddressUpdate: (tripId: ID) =>
+				useSubscription<
+					SubAddressUpdateSubscriptionData,
+					SubAddressUpdateSubscriptionVariables
+				>(SUB_ADDRESS_UPDATE, {
 					variables: { tripId },
 				}),
 			useSubAddressDelete: (tripId: ID) =>

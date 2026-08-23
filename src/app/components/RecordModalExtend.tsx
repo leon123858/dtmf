@@ -12,6 +12,7 @@ import { Decimal } from 'decimal.js';
 interface RecordModalExtendProps {
 	method: SplitMethod;
 	shouldPayAddress: string[];
+	addressNames: Record<string, string>;
 	amount: number;
 	customSplit: { [key: string]: number };
 	setCustomSplit: React.Dispatch<
@@ -22,6 +23,7 @@ interface RecordModalExtendProps {
 export const RecordModalExtend: React.FC<RecordModalExtendProps> = ({
 	method,
 	shouldPayAddress,
+	addressNames,
 	amount,
 	customSplit,
 	setCustomSplit,
@@ -38,7 +40,7 @@ export const RecordModalExtend: React.FC<RecordModalExtendProps> = ({
 						{shouldPayAddress.map((addr) => (
 							<div key={addr} className='flex items-center justify-between'>
 								<label htmlFor={`split-${addr}`} className='text-gray-700'>
-									{longStringSimplify(addr)}
+									{longStringSimplify(addressNames[addr] || addr)}
 								</label>
 								<input
 									id={`split-${addr}`}
@@ -83,7 +85,7 @@ export const RecordModalExtend: React.FC<RecordModalExtendProps> = ({
 						{shouldPayAddress.map((addr) => (
 							<div key={addr} className='flex items-center justify-between'>
 								<label htmlFor={`split-${addr}`} className='text-gray-700'>
-									{longStringSimplify(addr)}
+									{longStringSimplify(addressNames[addr] || addr)}
 								</label>
 								<input
 									id={`split-${addr}`}
@@ -125,7 +127,7 @@ export const RecordModalExtend: React.FC<RecordModalExtendProps> = ({
 						{shouldPayAddress.map((addr) => (
 							<div key={addr} className='flex items-center justify-between'>
 								<label htmlFor={`split-${addr}`} className='text-gray-700'>
-									{longStringSimplify(addr)}
+									{longStringSimplify(addressNames[addr] || addr)}
 								</label>
 								<input
 									id={`split-${addr}`}
@@ -244,7 +246,7 @@ export const RecordModalExtend: React.FC<RecordModalExtendProps> = ({
 									className='form-checkbox h-5 w-5 text-blue-600'
 								/>
 								<span className='text-gray-700'>
-									{longStringSimplify(addr)}
+									{longStringSimplify(addressNames[addr] || addr)}
 								</span>
 							</label>
 						))}

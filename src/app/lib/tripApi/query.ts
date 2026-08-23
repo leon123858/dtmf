@@ -1,4 +1,3 @@
-// src/graphql/queries.js
 import { gql } from '@apollo/client';
 
 export const GET_TRIP = gql`
@@ -10,24 +9,18 @@ export const GET_TRIP = gql`
 				id
 				name
 				amount
-				prePayAddress
+				prePayAddress { id name }
 				time
-				shouldPayAddress
+				shouldPayAddress { id name }
 				extendPayMsg
 				category
 				isValid
 			}
 			moneyShare {
-				input {
-					amount
-					address
-				}
-				output {
-					amount
-					address
-				}
+				input { amount address { id name } }
+				output { amount address { id name } }
 			}
-			addressList
+			addresses { id name }
 			isValid
 		}
 	}

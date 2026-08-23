@@ -63,7 +63,7 @@ export const AddressList = () => {
 			createAddress({
 				variables: {
 					tripId: context.tripId,
-					address: newAddress.trim(),
+					input: { name: newAddress.trim() },
 				},
 			});
 			setNewAddress('');
@@ -71,13 +71,13 @@ export const AddressList = () => {
 		}
 	};
 
-	const handleRemoveAddress = (address: string) => {
-		if (!address) return;
+	const handleRemoveAddress = (addressId: string) => {
+		if (!addressId) return;
 
 		removeAddress({
 			variables: {
 				tripId: context.tripId,
-				address,
+				addressId,
 			},
 		})
 			.then(() => {
@@ -107,16 +107,16 @@ export const AddressList = () => {
 			)}
 			<h2 className='text-xl font-bold mb-4 text-gray-800'>成員列表</h2>
 			<div className='space-y-2 mb-4'>
-				{tripData.addressList.map((address) => (
+				{tripData.addresses.map((address) => (
 					<div
-						key={address}
+						key={address.id}
 						className='flex justify-between items-center bg-gray-50 p-3 rounded-md'
 					>
 						<span className='text-gray-700 font-mono'>
-							{longStringSimplify(address)}
+							{longStringSimplify(address.name)}
 						</span>
 						<button
-							onClick={() => handleRemoveAddress(address)}
+							onClick={() => handleRemoveAddress(address.id)}
 							className='text-red-400 hover:text-red-600 font-bold'
 						>
 							移除
@@ -130,7 +130,7 @@ export const AddressList = () => {
 						type='text'
 						value={newAddress}
 						onChange={(e) => setNewAddress(e.target.value)}
-						placeholder='輸入新成員地址 (e.g., 0x...)'
+						placeholder='輸入新成員名稱'
 						className='flex-grow p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
 					/>
 					<button

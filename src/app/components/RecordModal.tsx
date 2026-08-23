@@ -96,12 +96,12 @@ export function calculateCustomSplitSum(customSplit: {
 }
 
 export function countCustomSplitNotNegCnt(
-	addressList: string[],
+	addressIds: string[],
 	customSplit: {
 		[key: string]: number;
 	}
 ): number {
-	return addressList.filter((addr) => {
+	return addressIds.filter((addr) => {
 		if (customSplit[addr] === undefined) {
 			// not exist means 0
 			return true;
@@ -129,10 +129,10 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 		record?.amount ? Decimal(record.amount).toFixed(2) : ''
 	);
 	const [prePayAddress, setPrePayAddress] = useState(
-		record?.prePayAddress || tripData?.addressList[0] || ''
+		record?.prePayAddress.id || tripData?.addresses[0]?.id || ''
 	);
 	const [shouldPayAddress, setShouldPayAddress] = useState<string[]>(
-		record?.shouldPayAddress || []
+		record?.shouldPayAddress.map(({ id }) => id) || []
 	);
 	const [time, setTime] = useState(
 		record?.time ? Number(record.time) : curTimeWithNoSecond()
@@ -149,7 +149,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 			? record.shouldPayAddress.reduce(
 					(acc, addr, index) => ({
 						...acc,
-						[addr]:
+						[addr.id]:
 							parseFloat(Decimal(record.extendPayMsg[index]).toFixed(2)) || 0,
 					}),
 					{}
@@ -160,15 +160,21 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 	const [oldRecordData, {}] = useState<NewRecordInput>({
 		name,
 		amount: parseFloat(amount) || 0,
-		prePayAddress,
+		prePayAddressId: prePayAddress,
 		time: new Date(time).getTime().toString(),
-		shouldPayAddress,
+		shouldPayAddressIds: shouldPayAddress,
 		extendPayMsg: shouldPayAddress.map((addr) => customSplit[addr] || 0),
 		category: splitMethod2RecordCategory(splitMethod),
 	});
 
 	const [updateRecord, {}] = useUpdateRecord(context?.tripId || '');
 	const [createRecord, {}] = useCreateRecord(context?.tripId || '');
+
+	useEffect(() => {
+		if (!prePayAddress && tripData?.addresses[0]) {
+			setPrePayAddress(tripData.addresses[0].id);
+		}
+	}, [prePayAddress, tripData]);
 
 	useEffect(() => {
 		const d = new Date(time);
@@ -280,9 +286,9 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 		const newRecordData: NewRecordInput = {
 			name,
 			amount: finalAmount,
-			prePayAddress,
+			prePayAddressId: prePayAddress,
 			time: new Date(time).getTime().toString(),
-			shouldPayAddress,
+			shouldPayAddressIds: shouldPayAddress,
 			extendPayMsg: shouldPayAddress.map((addr) => customSplit[addr] || 0),
 			category: splitMethod2RecordCategory(splitMethod),
 		};
@@ -405,7 +411,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 					<div className='mb-4'>
 						<label className='block text-gray-700 text-sm font-bold mb-2'>
 							預付人{' '}
-							{tripData.addressList.length == 0 && (
+							{tripData.addresses.length == 0 && (
 								<>
 									<span className='text-red-500'>請先新增成員</span>
 								</>
@@ -416,9 +422,9 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 							onChange={(e) => setPrePayAddress(e.target.value)}
 							className='shadow border rounded w-full py-2 px-3 text-gray-700'
 						>
-							{tripData.addressList.map((addr) => (
-								<option key={addr} value={addr}>
-									{longStringSimplify(addr)}
+							{tripData.addresses.map((addr) => (
+								<option key={addr.id} value={addr.id}>
+									{longStringSimplify(addr.name)}
 								</option>
 							))}
 						</select>
@@ -428,7 +434,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 							分攤人{' '}
 							<label
 								onClick={() => {
-									setShouldPayAddress(tripData.addressList);
+									setShouldPayAddress(tripData.addresses.map(({ id }) => id));
 								}}
 								className='rounded hover:bg-gray-200 transition-colors disabled:opacity-50 text-blue-500'
 								aria-label='click all'
@@ -437,19 +443,19 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 							</label>
 						</label>
 						<div className='grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-md'>
-							{tripData.addressList.map((addr) => (
+							{tripData.addresses.map((addr) => (
 								<label
-									key={addr}
+									key={addr.id}
 									className='flex items-center space-x-2 p-2 rounded-md hover:bg-gray-200 cursor-pointer'
 								>
 									<input
 										type='checkbox'
-										checked={shouldPayAddress.includes(addr)}
-										onChange={() => handleShouldPayToggle(addr)}
+										checked={shouldPayAddress.includes(addr.id)}
+										onChange={() => handleShouldPayToggle(addr.id)}
 										className='form-checkbox h-5 w-5 text-blue-600'
 									/>
 									<span className='text-gray-700'>
-										{longStringSimplify(addr)}
+										{longStringSimplify(addr.name)}
 									</span>
 								</label>
 							))}
@@ -470,12 +476,12 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 									if (e.target.value === SplitMethod.TRANSFER) {
 										const tmp = tripData.moneyShare.reduce((pre, cur) => {
 											const inputItem = cur.input.find(
-												(item) => item.address === prePayAddress
+												(item) => item.address.id === prePayAddress
 											);
 											if (inputItem) {
 												return {
 													...pre,
-													[cur.output.address]: Decimal(
+													[cur.output.address.id]: Decimal(
 														inputItem.amount
 													).toFixed(2),
 												};
@@ -509,6 +515,9 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 						<RecordModalExtend
 							method={splitMethod}
 							shouldPayAddress={shouldPayAddress}
+							addressNames={Object.fromEntries(
+								tripData.addresses.map(({ id, name }) => [id, name])
+							)}
 							amount={Number(amount) || 0}
 							customSplit={customSplit}
 							setCustomSplit={setCustomSplit}

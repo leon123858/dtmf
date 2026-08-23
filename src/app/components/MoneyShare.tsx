@@ -4,7 +4,7 @@ import React, { useContext } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { useGraphQLClient } from '@/app/lib/tripApi/client';
 import { longStringSimplify } from '@/app/lib/utils';
-import { Record, RecordCategory } from '../lib/tripApi/types';
+import { Address, Record, RecordCategory } from '../lib/tripApi/types';
 
 interface MoneyShareProps {
 	onRepay: (record: Omit<Record, 'id' | 'time' | 'isValid'>) => void;
@@ -45,12 +45,12 @@ export const MoneyShare: React.FC<MoneyShareProps> = ({ onRepay }) => {
 	};
 
 	const handleRepayClick = (
-		payerAddress: string,
-		receiverAddress: string,
+		payerAddress: Address,
+		receiverAddress: Address,
 		amount: number
 	) => {
 		const repayRecord: Omit<Record, 'id' | 'time' | 'isValid'> = {
-			name: `${payerAddress} payback to ${receiverAddress}`,
+			name: `${payerAddress.name} payback to ${receiverAddress.name}`,
 			amount: amount,
 			prePayAddress: payerAddress,
 			shouldPayAddress: [receiverAddress],
@@ -102,7 +102,7 @@ export const MoneyShare: React.FC<MoneyShareProps> = ({ onRepay }) => {
 								className='flex items-center justify-between mb-2'
 							>
 								<span className='font-semibold text-gray-700'>
-									{longStringSimplify(inputItem.address)}
+									{longStringSimplify(inputItem.address.name)}
 								</span>
 								<div className='flex items-center space-x-2'>
 									<button
@@ -129,7 +129,7 @@ export const MoneyShare: React.FC<MoneyShareProps> = ({ onRepay }) => {
 						{/* Output 部分 */}
 						<div className='flex items-center justify-between mt-2'>
 							<span className='font-semibold text-gray-700'>
-								{longStringSimplify(tx.output.address)}
+								{longStringSimplify(tx.output.address.name)}
 							</span>
 							<div className='flex items-center space-x-2'>
 								<span className='text-lg font-bold text-green-600'>收到</span>

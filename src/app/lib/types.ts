@@ -1,6 +1,7 @@
 import {
 	RecordCategory as IRecordCategory,
 	Record as IRecord,
+	Address,
 } from './tripApi/types';
 
 export type Record = IRecord;
@@ -9,18 +10,18 @@ export type RecordCategory = IRecordCategory;
 export interface MoneyShareItem {
 	input: {
 		amount: number;
-		address: string;
+		address: Address;
 	}[];
 	output: {
 		amount: number;
-		address: string;
+		address: Address;
 	};
 }
 
 export interface Trip {
 	id: string;
 	name: string;
-	addressList: string[];
+	addresses: Address[];
 	records: Record[];
 	moneyShare: MoneyShareItem[];
 }
