@@ -103,7 +103,7 @@ export const Header: React.FC<HeaderProps> = ({ onAddClick }) => {
 	};
 
 	return (
-		<header className='flex justify-between items-center py-4'>
+		<header className='relative flex items-center overflow-x-clip py-4'>
 			{isAlertVisible && (
 				<Message variant='error' isShow>
 					<span>{alertMessage}</span>
@@ -121,8 +121,10 @@ export const Header: React.FC<HeaderProps> = ({ onAddClick }) => {
 			{/* <Message variant={'info'} isShow={isSyncing}>
 				<span>其他人更新中...</span>
 			</Message> */}
-			<SideBar isOpen={isOpen} setIsOpen={setIsOpen} name={tripData.name} />
-			<div className='flex items-center space-x-2'>
+			<div className='shrink-0'>
+				<SideBar isOpen={isOpen} setIsOpen={setIsOpen} name={tripData.name} />
+			</div>
+			<div className='absolute right-0 top-1/2 z-10 flex w-max -translate-y-1/2 items-center space-x-2 bg-gray-100 pl-2'>
 				<button
 					onClick={handleShare}
 					className={`py-2 px-3 rounded-lg shadow-md transition-all duration-300 ${
