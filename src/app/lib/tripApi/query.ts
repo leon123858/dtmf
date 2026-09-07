@@ -1,8 +1,8 @@
 import { gql } from '@apollo/client';
 
 export const GET_TRIP = gql`
-	query GetTrip($tripId: ID!) {
-		trip(tripId: $tripId) {
+	query GetTrip($tripId: ID!, $haveHistory: Boolean! = false) {
+		trip(tripId: $tripId, haveHistory: $haveHistory) {
 			id
 			name
 			records {
@@ -15,6 +15,9 @@ export const GET_TRIP = gql`
 				extendPayMsg
 				category
 				isValid
+				isDeleted
+				isActive
+				parentRecordId
 			}
 			moneyShare {
 				input { amount address { id name } }

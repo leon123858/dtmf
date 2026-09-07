@@ -23,7 +23,7 @@ export const AddressList = () => {
 	const context = useContext(SingleTripContext);
 	const { data: tripData } = useTrip(context?.tripId || '');
 
-	const [createAddress, { loading: creating, error: createError }] =
+	const [createAddress, { loading: creating }] =
 		useCreateAddress(context?.tripId || '');
 	const [updateAddress, { loading: updating }] = useUpdateAddress(
 		context?.tripId || ''
@@ -43,40 +43,20 @@ export const AddressList = () => {
 
 	if (!context || !tripData) return null;
 
-	if (creating) {
-		return <div className='text-center text-blue-500 mt-12'>新增中...</div>;
-	}
-	if (createError) {
-		console.error('Error creating address:', createError);
-		return (
-			<div className='text-center text-red-500 mt-12'>
-				新增失敗，請稍後再試。(
-				{createError.message == 'invalid address'
-					? '輸入含非法字符'
-					: createError.message}
-				)
-			</div>
-		);
-	}
-	if (removing) {
-		return <div className='text-center text-blue-500 mt-12'>移除中...</div>;
-	}
-	const handleAddAddress = () => {
-		if (newAddress.trim()) {
-			console.log('Adding address:', newAddress.trim());
-			createAddress({
-				variables: {
-					tripId: context.tripId,
-					input: { name: newAddress.trim() },
-				},
-			});
-			setNewAddress('');
-			setIsAdding(false);
-		}
-	};
+ const handleAddAddress = async () => {
+  if (!newAddress.trim() || creating) return;
+  try {
+   await createAddress({ variables: { tripId: context.tripId, input: { name: newAddress.trim() } } });
+   setNewAddress('');
+   setIsAdding(false);
+  } catch (error) {
+   setErrorMessage(error instanceof Error ? error.message : 'Adding member failed. ⚠️');
+   setShowError(true);
+  }
+ };
 
 	const handleRemoveAddress = (addressId: string) => {
-		if (!addressId) return;
+		if (!addressId || removing) return;
 
 		removeAddress({
 			variables: {
@@ -112,7 +92,7 @@ export const AddressList = () => {
 	};
 
 	const handleUpdateAddress = () => {
-		if (!editingAddressId) return;
+		if (!editingAddressId || updating) return;
 
 		const name = editingAddressName.trim();
 		if (!name) return;
@@ -215,7 +195,7 @@ export const AddressList = () => {
 										改名
 									</button>
 									<button
-										onClick={() => handleRemoveAddress(address.id)}
+										disabled={removing} onClick={() => handleRemoveAddress(address.id)}
 										className='text-red-400 hover:text-red-600 font-bold'
 									>
 										移除
@@ -236,7 +216,7 @@ export const AddressList = () => {
 						className='flex-grow p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
 					/>
 					<button
-						onClick={handleAddAddress}
+						disabled={creating} onClick={handleAddAddress}
 						className='bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600'
 					>
 						新增

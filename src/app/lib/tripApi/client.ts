@@ -1,5 +1,11 @@
+import { useMemo } from 'react';
+import { normalizeTrip } from './recordInput';
+import { refreshTrip } from './sync';
 import {
 	useQuery,
+ useApolloClient,
+ OperationVariables,
+ DocumentNode,
 	useMutation,
 	useSubscription,
 	ApolloQueryResult,
@@ -12,14 +18,12 @@ import {
 	UPDATE_TRIP,
 	CREATE_RECORD,
 	UPDATE_RECORD,
-	REMOVE_RECORD,
 	CREATE_ADDRESS,
 	UPDATE_ADDRESS,
 	DELETE_ADDRESS,
 } from './mutation';
 import {
 	SUB_RECORD_CREATE,
-	SUB_RECORD_DELETE,
 	SUB_RECORD_UPDATE,
 	SUB_ADDRESS_CREATE,
 	SUB_ADDRESS_UPDATE,
@@ -38,8 +42,6 @@ import {
 	CreateRecordMutationData,
 	UpdateRecordMutationVariables,
 	UpdateRecordMutationData,
-	RemoveRecordMutationVariables,
-	RemoveRecordMutationData,
 	CreateAddressMutationVariables,
 	CreateAddressMutationData,
 	UpdateAddressMutationVariables,
@@ -48,8 +50,6 @@ import {
 	DeleteAddressMutationData,
 	SubRecordCreateSubscriptionVariables,
 	SubRecordCreateSubscriptionData,
-	SubRecordDeleteSubscriptionVariables,
-	SubRecordDeleteSubscriptionData,
 	SubRecordUpdateSubscriptionVariables,
 	SubRecordUpdateSubscriptionData,
 	SubAddressCreateSubscriptionVariables,
@@ -60,10 +60,10 @@ import {
 	SubAddressDeleteSubscriptionData,
 } from './types';
 
-// 定義一個包含所有 GraphQL 操作的物件類型
+// Define an object type containing all GraphQL operations
 interface TripGraphQLClient {
 	queries: {
-		useTrip: (tripId: ID) => {
+		useTrip: (tripId: ID, haveHistory?: boolean) => {
 			data: Trip | null | undefined;
 			loading: boolean;
 			error: ApolloQueryResult<TripQueryData>['error'];
@@ -87,9 +87,6 @@ interface TripGraphQLClient {
 		useUpdateRecord: (
 			tripId: ID
 		) => MutationTuple<UpdateRecordMutationData, UpdateRecordMutationVariables>;
-		useRemoveRecord: (
-			tripId: ID
-		) => MutationTuple<RemoveRecordMutationData, RemoveRecordMutationVariables>;
 		useCreateAddress: (
 			tripId: ID
 		) => MutationTuple<
@@ -110,9 +107,6 @@ interface TripGraphQLClient {
 		useSubRecordCreate: (
 			tripId: ID
 		) => SubscriptionResult<SubRecordCreateSubscriptionData>;
-		useSubRecordDelete: (
-			tripId: ID
-		) => SubscriptionResult<SubRecordDeleteSubscriptionData>;
 		useSubRecordUpdate: (
 			tripId: ID
 		) => SubscriptionResult<SubRecordUpdateSubscriptionData>;
@@ -131,16 +125,19 @@ interface TripGraphQLClient {
 export const useGraphQLClient = (): TripGraphQLClient => {
 	return {
 		queries: {
-			useTrip: (tripId: ID) => {
+			useTrip: (tripId: ID, haveHistory: boolean = false) => {
 				const { loading, error, data, refetch } = useQuery<
 					TripQueryData,
 					TripQueryVariables
 				>(GET_TRIP, {
-					variables: { tripId },
+					variables: { tripId, haveHistory },
 					fetchPolicy: 'cache-first',
-					pollInterval: 20000, // 每20秒重新拉取一次數據
+ skip: !tripId,
+ notifyOnNetworkStatusChange: true,
+					pollInterval: 20000, // Refetch data every 20 seconds
 				});
-				return { data: data?.trip, loading, error, refetch };
+				const trip = useMemo(() => data?.trip ? normalizeTrip(data.trip) : (data?.trip === null ? null : undefined), [data]);
+ return { data: trip, loading, error, refetch };
 			},
 		},
 		mutations: {
@@ -149,217 +146,14 @@ export const useGraphQLClient = (): TripGraphQLClient => {
 					CREATE_TRIP
 				),
 			useUpdateTrip: () =>
-				useMutation<UpdateTripMutationData, UpdateTripMutationVariables>(
+				useTripMutation<UpdateTripMutationData, UpdateTripMutationVariables>(
 					UPDATE_TRIP
 				),
-			useCreateRecord: (tripId: ID) =>
-				useMutation<CreateRecordMutationData, CreateRecordMutationVariables>(
-					CREATE_RECORD,
-					{
-						update: (cache, { data }) => {
-							// 更新 Apollo Cache 中的記錄列表
-							const existingTrip = cache.readQuery<TripQueryData>({
-								query: GET_TRIP,
-								variables: { tripId },
-							});
-							if (existingTrip && data?.createRecord) {
-								const curRecordList = existingTrip.trip?.records || [];
-								if (
-									curRecordList.some(
-										(record) => record.id === data.createRecord.id
-									)
-								) {
-									// 如果記錄已存在，則不進行更新
-									return;
-								}
-								const updatedTrip = {
-									...existingTrip,
-									trip: {
-										...existingTrip.trip,
-										records: [
-											...(existingTrip.trip?.records || []),
-											{
-												...data.createRecord,
-												isValid: true, // if user use gui to create record, it should be valid
-											},
-										],
-									},
-								};
-								cache.writeQuery({
-									query: GET_TRIP,
-									variables: { tripId },
-									data: updatedTrip,
-								});
-							}
-						},
-					}
-				),
-			useUpdateRecord: (tripId: ID) =>
-				useMutation<UpdateRecordMutationData, UpdateRecordMutationVariables>(
-					UPDATE_RECORD,
-					{
-						update: (cache, { data }) => {
-							// 更新 Apollo Cache 中的記錄列表
-							const existingTrip = cache.readQuery<TripQueryData>({
-								query: GET_TRIP,
-								variables: { tripId },
-							});
-							if (existingTrip && data?.updateRecord) {
-								const curRecordList = existingTrip.trip?.records || [];
-								const curRecordIdx = curRecordList.findIndex(
-									(record) => record.id === data.updateRecord.id
-								);
-								if (curRecordIdx === -1) {
-									// 如果找不到要更新的記錄，則不進行更新
-									return;
-								}
-								const updatedTrip = {
-									...existingTrip,
-									trip: {
-										...existingTrip.trip,
-										records: existingTrip.trip?.records.map((record) =>
-											record.id === data.updateRecord.id
-												? {
-														...data.updateRecord,
-														isValid: true, // if user use gui to create record, it should be valid
-												  }
-												: record
-										),
-									},
-								};
-								cache.writeQuery({
-									query: GET_TRIP,
-									variables: { tripId },
-									data: updatedTrip,
-								});
-							}
-						},
-					}
-				),
-			useRemoveRecord: (tripId: ID) =>
-				useMutation<RemoveRecordMutationData, RemoveRecordMutationVariables>(
-					REMOVE_RECORD,
-					{
-						update: (cache, { data }) => {
-							// 更新 Apollo Cache 中的記錄列表
-							const existingTrip = cache.readQuery<TripQueryData>({
-								query: GET_TRIP,
-								variables: { tripId },
-							});
-							if (existingTrip && data?.removeRecord) {
-								const updatedRecordList = existingTrip.trip?.records.filter(
-									(record) => record.id !== data.removeRecord
-								);
-								const updatedTrip = {
-									...existingTrip,
-									trip: {
-										...existingTrip.trip,
-										records: updatedRecordList || [],
-									},
-								};
-								cache.writeQuery({
-									query: GET_TRIP,
-									variables: { tripId },
-									data: updatedTrip,
-								});
-							}
-						},
-					}
-				),
-			useCreateAddress: (tripId: ID) =>
-				useMutation<CreateAddressMutationData, CreateAddressMutationVariables>(
-					CREATE_ADDRESS,
-					{
-						update: (cache, { data }) => {
-							// 更新 Apollo Cache 中的地址列表
-							const existingTrip = cache.readQuery<TripQueryData>({
-								query: GET_TRIP,
-								variables: { tripId },
-							});
-							if (existingTrip && data?.createAddress) {
-								const curAddressList = existingTrip.trip?.addresses || [];
-								if (
-									curAddressList.some(({ id }) => id === data.createAddress.id)
-								) {
-									// 如果地址已存在，則不進行更新
-									return;
-								}
-								const updatedTrip = {
-									...existingTrip,
-									trip: {
-										...existingTrip.trip,
-										addresses: [...curAddressList, data.createAddress],
-									},
-								};
-								cache.writeQuery({
-									query: GET_TRIP,
-									variables: { tripId },
-									data: updatedTrip,
-								});
-							}
-						},
-					}
-				),
-			useUpdateAddress: (tripId: ID) =>
-				useMutation<UpdateAddressMutationData, UpdateAddressMutationVariables>(
-					UPDATE_ADDRESS,
-					{
-						update: (cache, { data }) => {
-							const existingTrip = cache.readQuery<TripQueryData>({
-								query: GET_TRIP,
-								variables: { tripId },
-							});
-							if (existingTrip?.trip && data?.updateAddress) {
-								cache.writeQuery({
-									query: GET_TRIP,
-									variables: { tripId },
-									data: {
-										...existingTrip,
-										trip: {
-											...existingTrip.trip,
-											addresses: existingTrip.trip.addresses.map((address) =>
-												address.id === data.updateAddress.id
-													? data.updateAddress
-													: address
-											),
-										},
-									},
-								});
-							}
-						},
-					}
-				),
-			useDeleteAddress: (tripId: ID) =>
-				useMutation<DeleteAddressMutationData, DeleteAddressMutationVariables>(
-					DELETE_ADDRESS,
-					{
-						update: (cache, { data }) => {
-							// 更新 Apollo Cache 中的地址列表
-							const existingTrip = cache.readQuery<TripQueryData>({
-								query: GET_TRIP,
-								variables: { tripId },
-							});
-							if (existingTrip && data?.deleteAddress) {
-								const updatedAddressList =
-									existingTrip.trip?.addresses.filter(
-										(address) => address.id !== data.deleteAddress.id
-									);
-								const updatedTrip = {
-									...existingTrip,
-									trip: {
-										...existingTrip.trip,
-										addresses: updatedAddressList || [],
-									},
-								};
-								cache.writeQuery({
-									query: GET_TRIP,
-									variables: { tripId },
-									data: updatedTrip,
-								});
-							}
-						},
-					}
-				),
+			useCreateRecord: (tripId: ID) => useTripMutation<CreateRecordMutationData, CreateRecordMutationVariables>(CREATE_RECORD, tripId),
+			useUpdateRecord: (tripId: ID) => useTripMutation<UpdateRecordMutationData, UpdateRecordMutationVariables>(UPDATE_RECORD, tripId),
+			useCreateAddress: (tripId: ID) => useTripMutation<CreateAddressMutationData, CreateAddressMutationVariables>(CREATE_ADDRESS, tripId),
+			useUpdateAddress: (tripId: ID) => useTripMutation<UpdateAddressMutationData, UpdateAddressMutationVariables>(UPDATE_ADDRESS, tripId),
+			useDeleteAddress: (tripId: ID) => useTripMutation<DeleteAddressMutationData, DeleteAddressMutationVariables>(DELETE_ADDRESS, tripId),
 		},
 		subscriptions: {
 			useSubRecordCreate: (tripId: ID) =>
@@ -367,13 +161,6 @@ export const useGraphQLClient = (): TripGraphQLClient => {
 					SubRecordCreateSubscriptionData,
 					SubRecordCreateSubscriptionVariables
 				>(SUB_RECORD_CREATE, {
-					variables: { tripId },
-				}),
-			useSubRecordDelete: (tripId: ID) =>
-				useSubscription<
-					SubRecordDeleteSubscriptionData,
-					SubRecordDeleteSubscriptionVariables
-				>(SUB_RECORD_DELETE, {
 					variables: { tripId },
 				}),
 			useSubRecordUpdate: (tripId: ID) =>
@@ -407,3 +194,17 @@ export const useGraphQLClient = (): TripGraphQLClient => {
 		},
 	};
 };
+
+function useTripMutation<T, V extends OperationVariables>(document: DocumentNode, tripId?: string): MutationTuple<T, V> {
+ const client = useApolloClient();
+ const [mutate, result] = useMutation<T, V>(document, { fetchPolicy: 'no-cache' });
+ const execute: MutationTuple<T, V>[0] = async options => {
+  const response = await mutate(options);
+  if (!response.errors?.length && response.data) {
+   const id = tripId ?? options?.variables?.tripId;
+   if (typeof id === 'string') await refreshTrip(client, id);
+  }
+  return response;
+ };
+ return [execute, result];
+}

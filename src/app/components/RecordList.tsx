@@ -1,30 +1,38 @@
 'use client';
 
-import React, { useContext, useMemo, useRef, useEffect } from 'react';
+import React, { useContext, useMemo, useRef, useEffect, useState } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { Record } from '@/app/lib/types';
 import { useGraphQLClient } from '@/app/lib/tripApi/client';
 import { longStringSimplify } from '@/app/lib/utils';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { recordToInput } from '../lib/tripApi/recordInput';
+import { ConfirmModal } from './ConfirmModal';
 
 interface RecordListProps {
 	onEdit: (record: Record) => void;
 }
 
-// 預估高度
+// Estimated height
 const CARD_HEIGHT = 115;
 const SEPARATOR_HEIGHT = 50;
 
 export const RecordList: React.FC<RecordListProps> = ({ onEdit }) => {
+	const [deleteError, setDeleteError] = useState('');
+ const [deleting, setDeleting] = useState(false);
+ const deletingRef = useRef(false);
+	const [recordToDelete, setRecordToDelete] = useState<Record | null>(null);
+
 	const {
 		queries: { useTrip },
-		mutations: { useRemoveRecord },
+		mutations: { useUpdateRecord },
 	} = useGraphQLClient();
 
 	const context = useContext(SingleTripContext);
-	const { data: tripData } = useTrip(context?.tripId || '');
-	const [removeRecord, { loading: removing, error: removeError }] =
-		useRemoveRecord(context?.tripId || '');
+	const showHistory = context?.showHistory ?? false;
+ const { data: tripData, loading, error, refetch } = useTrip(context?.tripId || '', showHistory);
+	const [updateRecord] =
+		useUpdateRecord(context?.tripId || '');
 
 	const processedRecords = useMemo(() => {
 		if (!tripData || !tripData.records) return null;
@@ -62,12 +70,12 @@ export const RecordList: React.FC<RecordListProps> = ({ onEdit }) => {
 			})
 			.map((record) => {
 				const d = new Date(record.date);
-				d.setHours(0, 0, 0, 0); // 將日期標準化到當天的 0 點
+				d.setHours(0, 0, 0, 0); // Normalize date to start of day
 				const currentDayStart = d.getTime();
 
 				const isNewDay = currentDayStart >= nextDate;
 				if (isNewDay) {
-					// nextDate 設為明天的 0 點
+					// Set nextDate to start of next day
 					nextDate = currentDayStart + 24 * 60 * 60 * 1000;
 				}
 
@@ -79,10 +87,11 @@ export const RecordList: React.FC<RecordListProps> = ({ onEdit }) => {
 		return [...formattedInValidRecords, ...formattedValidRecords];
 	}, [tripData]);
 
-	const parentRef = useRef<HTMLDivElement>(null); // 滾動容器的 ref
+	const parentRef = useRef<HTMLDivElement>(null); // Scroll container ref
 
 	const rowVirtualizer = useVirtualizer({
 		count: processedRecords?.length || 0,
+ getItemKey: index => processedRecords?.[index].id ?? index,
 		getScrollElement: () => parentRef.current,
 		estimateSize: (index) => {
 			if (!processedRecords) {
@@ -103,62 +112,61 @@ export const RecordList: React.FC<RecordListProps> = ({ onEdit }) => {
 		rowVirtualizer.measure();
 	}, [processedRecords, rowVirtualizer]);
 
-	if (!context || !tripData) return null;
-
-	if (tripData.records.length === 0) {
-		return (
-			<div className='text-center text-gray-500 mt-12'>
-				還沒有任何帳目，點擊「新增」開始吧！
-			</div>
-		);
-	}
-
-	if (removing) {
-		return (
-			<div className='text-center text-blue-500 mt-12'>正在刪除帳目...</div>
-		);
-	}
-	if (removeError) {
-		console.error('Error removing record:', removeError);
-		return (
-			<div className='text-center text-red-500 mt-12'>
-				刪除失敗，請稍後再試。(
-				{removeError.message == 'invalid record input'
-					? '輸入含非法字符'
-					: removeError.message}
-				)
-			</div>
-		);
-	}
+ const retry = () => { void refetch().catch(() => {}); };
+ const handleDeleteConfirm = async () => {
+  if (!recordToDelete || !context || deletingRef.current) return;
+  deletingRef.current = true;
+  setDeleting(true);
+  setDeleteError('');
+  try {
+   const old = recordToInput(recordToDelete);
+   await updateRecord({ variables: { recordId: recordToDelete.id, input: { old, new: { ...old, isDeleted: true } } } });
+   setRecordToDelete(null);
+  } catch (error) {
+   setDeleteError(error instanceof Error ? error.message : 'Delete failed. Please try again. ⚠️');
+  } finally {
+   deletingRef.current = false;
+   setDeleting(false);
+  }
+ };
+ if (!context) return null;
+ if (!tripData) return <div className='text-center text-gray-500 mt-12' role='status'>
+  {error ? <>Loading failed. ⚠️ <button className='underline' onClick={retry}>Retry 🔄</button></> : loading ? 'Loading… ⏳' : 'Trip not found.'}
+ </div>;
 
 	return (
-		<div
-			ref={parentRef}
-			className='space-y-3'
-			style={{
-				height: `calc(100vh - 200px)`,
-				overflow: 'auto',
-			}}
-		>
-			{processedRecords?.length && (
+		<div className='flex flex-col space-y-3'>
+ {error && <p role='alert' className='text-red-600 text-sm'>Refresh failed. ⚠️ <button className='underline' onClick={retry}>Retry 🔄</button></p>}
+ {!tripData.records.length && <p className='text-center text-gray-500 mt-12'>{showHistory ? 'No history records found. 🕰️' : "No records yet, click 'Add' to start! ✨"}</p>}
+			<div
+				ref={parentRef}
+				style={{
+					height: `calc(100dvh - 200px)`,
+					overflow: 'auto',
+				}}
+			>
+			{!!processedRecords?.length && (
 				<div
 					style={{
-						height: `${rowVirtualizer.getTotalSize()}px`, // 內容的總高度，撐開滾動條
+						height: `${rowVirtualizer.getTotalSize()}px`, // Total content height for scrollbar
 						width: '100%',
 						position: 'relative',
 					}}
 				>
 					{rowVirtualizer.getVirtualItems().map((virtualItem) => {
-						const record = processedRecords[virtualItem.index]; // 取得對應的資料
+						const record = processedRecords[virtualItem.index]; // Get corresponding data
 						return (
 							<div
-								key={record.id}
+								key={virtualItem.key}
+ data-index={virtualItem.index}
+ ref={rowVirtualizer.measureElement}
+ className="pb-3"
 								style={{
 									position: 'absolute',
 									top: 0,
 									left: 0,
 									width: '100%',
-									transform: `translateY(${virtualItem.start}px)`, // 將項目定位到正確的位置
+									transform: `translateY(${virtualItem.start}px)`, // Position items
 								}}
 							>
 								{record.isNewDay &&
@@ -174,22 +182,22 @@ export const RecordList: React.FC<RecordListProps> = ({ onEdit }) => {
 										<div className='flex items-center my-4'>
 											<div className='flex-grow border-t border-red-200'></div>
 											<span className='mx-4 text-red-500 text-sm font-semibold'>
-												無效帳目
+												Invalid Record ⚠️
 											</span>
 											<div className='flex-grow border-t border-red-200'></div>
 										</div>
 									))}
-								<div className='bg-white p-4 rounded-lg shadow-md flex items-center justify-between'>
-									<div className='flex-1'>
-										<p className='font-bold text-lg text-gray-800'>
-											{record.isValid ? '' : '[無效]'} {record.name}
+								<div className={`p-4 rounded-lg shadow-md flex items-center justify-between ${record.isDeleted || !record.isActive ? 'bg-gray-100 opacity-60' : 'bg-white'}`}>
+									<div className='flex-1 min-w-0 [overflow-wrap:anywhere]'>
+										<p className={`font-bold text-lg ${record.isDeleted || !record.isActive ? 'text-gray-500 line-through' : 'text-gray-800'}`}>
+											{!record.isValid && '[Invalid ⚠️] '} {record.isDeleted ? '[Deleted 🗑️] ' : !record.isActive ? '[Old Version 🕒] ' : ''} {record.name}
 										</p>
 										<p className='text-sm text-gray-500 mt-1'>
-											由 {longStringSimplify(record.prePayAddress.name)} 墊付 $
-											{record.amount.toLocaleString()}
+											Paid by {longStringSimplify(record.prePayAddress.name)} $
+											{record.amount.toLocaleString()} 💸
 										</p>
 										<p className='text-sm text-gray-500 mt-1'>
-											分攤人:{' '}
+											Split between: 👥{' '}
 											{longStringSimplify(
 												record.shouldPayAddress
 													.map((addr) => longStringSimplify(addr.name))
@@ -198,22 +206,24 @@ export const RecordList: React.FC<RecordListProps> = ({ onEdit }) => {
 											)}
 										</p>
 									</div>
-									<div className='flex space-x-2'>
-										<button
-											onClick={() => onEdit(record)}
-											className='text-blue-500 hover:text-blue-700 p-2'
-										>
-											✏️
-										</button>
-										<button
-											onClick={() => {
-												removeRecord({ variables: { recordId: record.id } });
-											}}
-											disabled={removing}
-											className='text-red-500 hover:text-red-700 p-2'
-										>
-											🗑️
-										</button>
+									<div className='flex shrink-0 space-x-1'>
+										{!record.isDeleted && record.isActive && (
+											<>
+												<button
+													aria-label={`Edit ${record.name}`} onClick={() => onEdit(record)}
+													className='text-blue-500 hover:text-blue-700 p-2'
+												>
+													✏️
+												</button>
+												<button
+													aria-label={`Delete ${record.name}`} onClick={() => { setDeleteError(''); setRecordToDelete(structuredClone(record)); }}
+													disabled={deleting}
+													className='text-red-500 hover:text-red-700 p-2'
+												>
+													🗑️
+												</button>
+											</>
+										)}
 									</div>
 								</div>
 							</div>
@@ -221,6 +231,20 @@ export const RecordList: React.FC<RecordListProps> = ({ onEdit }) => {
 					})}
 				</div>
 			)}
+			</div>
+			
+			<ConfirmModal
+				isOpen={!!recordToDelete}
+				title="Delete Record 🗑️"
+				message={`Are you sure you want to delete the record "${recordToDelete?.name}"? It will be marked as deleted and kept in history. 🕰️`}
+				onConfirm={handleDeleteConfirm}
+				busy={deleting}
+ error={deleteError}
+ onCancel={() => { setRecordToDelete(null); setDeleteError(''); }}
+				confirmText="Delete"
+				cancelText="Cancel"
+				isDestructive={true}
+			/>
 		</div>
 	);
 };

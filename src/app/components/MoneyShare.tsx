@@ -56,6 +56,8 @@ export const MoneyShare: React.FC<MoneyShareProps> = ({ onRepay }) => {
 			shouldPayAddress: [receiverAddress],
 			category: RecordCategory.TRANSFER,
 			extendPayMsg: [amount],
+			isDeleted: false,
+			isActive: true,
 		};
 		onRepay(repayRecord);
 	};

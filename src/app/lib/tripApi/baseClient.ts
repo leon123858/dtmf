@@ -4,7 +4,7 @@ import { baseURL, wsURL } from './config';
 import { getMainDefinition } from '@apollo/client/utilities';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { createClient } from 'graphql-ws';
-import { Record } from './types';
+import { tripTypePolicies } from './cache';
 
 const httpLink = new HttpLink({
 	uri: baseURL,
@@ -28,35 +28,11 @@ const splitLink = split(
 	httpLink
 );
 
-const client = new ApolloClient({
+export const getClient = () => new ApolloClient({
 	link: splitLink,
 	connectToDevTools: false,
 	devtools: {
 		enabled: false,
 	},
-	cache: new InMemoryCache({
-		typePolicies: {
-			Query: {
-				fields: {
-					trip: {
-						keyArgs: ['tripId'],
-					},
-				},
-			},
-			Trip: {
-				fields: {
-					records: {
-						keyArgs: false,
-						merge(_existing: Record[], incoming: Record[] = []) {
-							return [...incoming];
-						},
-					},
-				},
-			},
-		},
-	}),
+	cache: new InMemoryCache({ typePolicies: tripTypePolicies }),
 });
-
-export const getClient = () => {
-	return client;
-};

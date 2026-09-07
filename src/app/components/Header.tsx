@@ -13,73 +13,16 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ onAddClick }) => {
 	const {
 		queries: { useTrip },
-		subscriptions: {
-			// useSubAddressDelete,
-			// useSubAddressCreate,
-			// useSubRecordCreate,
-			// useSubRecordDelete,
-			// useSubRecordUpdate,
-		},
 	} = useGraphQLClient();
 
 	const [isCopied, setIsCopied] = useState(false);
 	const [isOpen, setIsOpen] = useState(false);
-	// const [isSyncing, setIsSyncing] = useState(false);
 
 	const [isAlertVisible, setIsAlertVisible] = useState(false);
 	const [alertMessage, setAlertMessage] = useState('');
 
 	const context = useContext(SingleTripContext);
 	const { data: tripData } = useTrip(context?.tripId || '');
-
-	// const {
-	// 	data: subAddressDeleteData,
-	// 	error: subAddressDeleteError,
-	// 	// loading: subAddressDeleteLoading,
-	// } = useSubAddressDelete(context?.tripId || '');
-	// const {
-	// 	data: subAddressCreateData,
-	// 	error: subAddressCreateError,
-	// 	// loading: subAddressCreateLoading,
-	// } = useSubAddressCreate(context?.tripId || '');
-	// const {
-	// 	data: subRecordCreateData,
-	// 	error: subRecordCreateError,
-	// 	// loading: subRecordCreateLoading,
-	// } = useSubRecordCreate(context?.tripId || '');
-	// const {
-	// 	data: subRecordDeleteData,
-	// 	error: subRecordDeleteError,
-	// 	// loading: subRecordDeleteLoading,
-	// } = useSubRecordDelete(context?.tripId || '');
-	// const {
-	// 	data: subRecordUpdateData,
-	// 	error: subRecordUpdateError,
-	// 	// loading: subRecordUpdateLoading,
-	// } = useSubRecordUpdate(context?.tripId || '');
-
-	// useEffect(() => {
-	// 	// 當 data 有值時 (表示收到了伺服器的推送)
-	// 	if (
-	// 		subAddressDeleteData ||
-	// 		subAddressCreateData ||
-	// 		subRecordCreateData ||
-	// 		subRecordDeleteData ||
-	// 		subRecordUpdateData
-	// 	) {
-	// 		setIsSyncing(true);
-	// 		console.log('Received new data, refetching...');
-	// 		refetch();
-	// 		setIsSyncing(false);
-	// 	}
-	// }, [
-	// 	subAddressDeleteData,
-	// 	subAddressCreateData,
-	// 	subRecordCreateData,
-	// 	subRecordDeleteData,
-	// 	subRecordUpdateData,
-	// 	refetch,
-	// ]);
 
 	if (!context || !tripData) return null;
 
@@ -103,26 +46,14 @@ export const Header: React.FC<HeaderProps> = ({ onAddClick }) => {
 	};
 
 	return (
-		<header className='flex justify-between items-center py-4'>
+		<header className='flex min-w-0 gap-2 justify-between items-center py-4'>
 			{isAlertVisible && (
 				<Message variant='error' isShow>
 					<span>{alertMessage}</span>
 				</Message>
 			)}
-			{/* {subAddressDeleteError ||
-			subAddressCreateError ||
-			subRecordCreateError ||
-			subRecordDeleteError ||
-			subRecordUpdateError ? (
-				<Message variant='error' isShow>
-					<span>遠端資訊同步失敗，請重新嘗試開啟。</span>
-				</Message>
-			) : null} */}
-			{/* <Message variant={'info'} isShow={isSyncing}>
-				<span>其他人更新中...</span>
-			</Message> */}
 			<SideBar isOpen={isOpen} setIsOpen={setIsOpen} name={tripData.name} />
-			<div className='flex items-center space-x-2'>
+			<div className='flex shrink-0 items-center gap-2 whitespace-nowrap'>
 				<button
 					onClick={handleShare}
 					className={`py-2 px-3 rounded-lg shadow-md transition-all duration-300 ${

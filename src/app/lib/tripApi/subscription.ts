@@ -11,6 +11,9 @@ const SUB_RECORD_FIELDS = gql`
 		extendPayMsg
 		category
 		isValid
+		isDeleted
+		isActive
+		parentRecordId
 	}
 `;
 export const SUB_RECORD_CREATE = gql`
@@ -20,11 +23,6 @@ export const SUB_RECORD_CREATE = gql`
 	}
 `;
 
-export const SUB_RECORD_DELETE = gql`
-	subscription SubRecordDelete($tripId: ID!) {
-		subRecordDelete(tripId: $tripId)
-	}
-`;
 
 export const SUB_RECORD_UPDATE = gql`
 	${SUB_RECORD_FIELDS}

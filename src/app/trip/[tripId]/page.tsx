@@ -7,6 +7,7 @@ import { Record } from '@/app/lib/types';
 import { useGraphQLClient } from '@/app/lib/tripApi/client';
 
 // 引入拆分的元件
+import { TripSyncNotice } from '@/app/components/TripSyncNotice';
 import { Header } from '@/app/components/Header';
 import { TabBar } from '@/app/components/Tabbar';
 import { RecordList } from '@/app/components/RecordList';
@@ -16,9 +17,14 @@ import { RecordModal } from '@/app/components/RecordModal';
 import { SaveTripInStorage } from '@/app/lib/storage/trip';
 
 export default function TripPage() {
-	const router = useRouter();
 	const params = useParams();
 	const tripId = params.tripId as string;
+ return <TripContent key={tripId} tripId={tripId} />;
+}
+
+function TripContent({ tripId }: { tripId: string }) {
+ const router = useRouter();
+ const [showHistory, setShowHistory] = useState(false);
 
 	const {
 		queries: { useTrip },
@@ -79,7 +85,7 @@ export default function TripPage() {
 		);
 	}
 
-	if (tripLoading) {
+	if (tripLoading && !tripData) {
 		return (
 			<div className='bg-gray-100 min-h-screen flex items-center justify-center'>
 				<p className='text-gray-500'>載入中...</p>
@@ -88,10 +94,11 @@ export default function TripPage() {
 	}
 
 	return (
-		<SingleTripContext.Provider value={{ tripId }}>
+		<SingleTripContext.Provider value={{ tripId, showHistory, setShowHistory }}>
 			<div className='bg-gray-100 font-sans min-h-screen'>
 				<div className='container mx-auto max-w-lg p-4'>
 					<Header onAddClick={openAddModal} />
+					<TripSyncNotice tripId={tripId} />
 					<TabBar activeTab={activeTab} setActiveTab={setActiveTab} />
 					<main className='mt-4'>
 						{activeTab === 'records' && <RecordList onEdit={openEditModal} />}

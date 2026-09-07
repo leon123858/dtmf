@@ -11,6 +11,9 @@ const RECORD_FIELDS = gql`
 		extendPayMsg
 		category
 		isValid
+		isDeleted
+		isActive
+		parentRecordId
 	}
 `;
 export const CREATE_TRIP = gql`
@@ -39,11 +42,6 @@ export const UPDATE_RECORD = gql`
 	}
 `;
 
-export const REMOVE_RECORD = gql`
-	mutation RemoveRecord($recordId: ID!) {
-		removeRecord(recordId: $recordId)
-	}
-`;
 
 export const CREATE_ADDRESS = gql`
 	mutation CreateAddress($tripId: ID!, $input: NewAddress!) {

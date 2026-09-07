@@ -8,6 +8,7 @@ import { NewRecordInput, RecordCategory, ID } from '../lib/tripApi/types';
 import { Decimal } from 'decimal.js';
 import { RecordModalExtend } from './RecordModalExtend';
 import { Record } from '../lib/types';
+import { recordToInput } from '../lib/tripApi/recordInput';
 
 interface RecordModalProps {
 	onClose: () => void;
@@ -121,12 +122,13 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 
 	const context = useContext(SingleTripContext);
 	const isSubmittingRef = React.useRef(false);
+ const [saving, setSaving] = useState(false);
 	const [showError, setShowError] = useState(false);
 	const [errorText, setErrorText] = useState('');
 	const { data: tripData } = useTrip(context?.tripId || '');
 	const [name, setName] = useState(record?.name || '');
 	const [amount, setAmount] = useState(
-		record?.amount ? Decimal(record.amount).toFixed(2) : ''
+		record ? String(record.amount) : ''
 	);
 	const [prePayAddress, setPrePayAddress] = useState(
 		record?.prePayAddress.id || tripData?.addresses[0]?.id || ''
@@ -150,25 +152,17 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 					(acc, addr, index) => ({
 						...acc,
 						[addr.id]:
-							parseFloat(Decimal(record.extendPayMsg[index]).toFixed(2)) || 0,
+							record.extendPayMsg[index] ?? 0,
 					}),
 					{}
 			  )
 			: {}
 	);
 
-	const [oldRecordData, {}] = useState<NewRecordInput>({
-		name,
-		amount: parseFloat(amount) || 0,
-		prePayAddressId: prePayAddress,
-		time: new Date(time).getTime().toString(),
-		shouldPayAddressIds: shouldPayAddress,
-		extendPayMsg: shouldPayAddress.map((addr) => customSplit[addr] || 0),
-		category: splitMethod2RecordCategory(splitMethod),
-	});
-
-	const [updateRecord, {}] = useUpdateRecord(context?.tripId || '');
-	const [createRecord, {}] = useCreateRecord(context?.tripId || '');
+ const [oldRecordData] = useState(() => record?.id ? recordToInput(record as Record) : null);
+ const [updateRecord] = useUpdateRecord(context?.tripId || '');
+ const [createRecord] = useCreateRecord(context?.tripId || '');
+ const selectedSplit = Object.fromEntries(shouldPayAddress.map(id => [id, customSplit[id] ?? 0]));
 
 	useEffect(() => {
 		if (!prePayAddress && tripData?.addresses[0]) {
@@ -216,6 +210,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 		e.preventDefault();
 		if (isSubmittingRef.current) return; // Prevent multiple submissions
 		isSubmittingRef.current = true;
+ setSaving(true);
 		const finalAmount = parseFloat(amount);
 		if (
 			isNaN(finalAmount) ||
@@ -238,6 +233,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 			setErrorText('請填寫所有欄位, 並確保金額有被分配。');
 			setShowError(true);
 			isSubmittingRef.current = false;
+ setSaving(false);
 			return;
 		}
 
@@ -245,45 +241,50 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 			case SplitMethod.TRANSFER:
 			case SplitMethod.FIXED:
 				if (
-					!calculateCustomSplitSum(customSplit).eq(
+					!calculateCustomSplitSum(selectedSplit).eq(
 						new Decimal(Number(amount) || 0)
 					)
 				) {
 					setErrorText('自訂分攤金額總和有誤，請檢查後再提交。');
 					setShowError(true);
 					isSubmittingRef.current = false;
+ setSaving(false);
 					return;
 				}
 				break;
 			case SplitMethod.PART:
-				if (!calculateCustomSplitSum(customSplit).gt(0)) {
+				if (!calculateCustomSplitSum(selectedSplit).gt(0)) {
 					setErrorText('請至少分配一份金額。');
 					setShowError(true);
 					isSubmittingRef.current = false;
+ setSaving(false);
 					return;
 				}
 				break;
 			case SplitMethod.FIX_BEFORE_NORMAL:
 				if (
 					!new Decimal(Number(amount) || 0)
-						.minus(calculateCustomSplitSum(customSplit))
+						.minus(calculateCustomSplitSum(selectedSplit))
 						.gte(0)
 				) {
 					setErrorText('指定金額總和不可超過總金額，請檢查後再提交。');
 					setShowError(true);
 					isSubmittingRef.current = false;
+ setSaving(false);
 					return;
 				}
 				if (!(countCustomSplitNotNegCnt(shouldPayAddress, customSplit) > 0)) {
 					setErrorText('請至少一人均分剩餘金額。');
 					setShowError(true);
 					isSubmittingRef.current = false;
+ setSaving(false);
 					return;
 				}
 				break;
 		}
 
 		const newRecordData: NewRecordInput = {
+ isDeleted: record?.isDeleted ?? false,
 			name,
 			amount: finalAmount,
 			prePayAddressId: prePayAddress,
@@ -293,7 +294,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 			category: splitMethod2RecordCategory(splitMethod),
 		};
 
-		if (record?.id && record.id.length > 0) {
+		if (record?.id && oldRecordData) {
 			// Editing existing record
 			updateRecord({
 				variables: {
@@ -308,7 +309,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 				.catch((error) => {
 					console.error('Error updating record:', error);
 					setErrorText(
-						'創建失敗，請稍後再試。(' +
+						'更新失敗，請稍後再試。(' +
 							(error.message == 'invalid record input'
 								? '輸入含非法字符'
 								: error.message) +
@@ -318,6 +319,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 				})
 				.finally(() => {
 					isSubmittingRef.current = false;
+ setSaving(false);
 				});
 		} else {
 			// Creating new record
@@ -341,12 +343,13 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 				})
 				.finally(() => {
 					isSubmittingRef.current = false;
+ setSaving(false);
 				});
 		}
 	};
 
-	const title = record ? '編輯帳目' : '新增帳目';
-	const submitText = record ? '儲存變更' : '新增';
+	const title = record?.id ? '編輯帳目' : '新增帳目';
+	const submitText = record?.id ? '儲存變更' : '新增';
 
 	return (
 		<div className='fixed inset-0 bg-black bg-opacity-50 flex justify-center items-start p-4 z-30 overflow-y-auto'>
@@ -362,6 +365,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 			<div className='bg-white rounded-lg shadow-xl p-6 w-full max-w-md'>
 				<h2 className='text-2xl font-bold mb-4'>{title}</h2>
 				<form onSubmit={handleSubmit}>
+ <fieldset disabled={saving}>
 					<div className='mb-4'>
 						<label className='block text-gray-700 text-sm font-bold mb-2'>
 							項目名稱
@@ -402,7 +406,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 							type='number'
 							value={amount}
 							min={0}
-							step={0.01}
+							step="any"
 							onChange={(e) => setAmount(e.target.value)}
 							className='shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline'
 							required
@@ -483,7 +487,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 													...pre,
 													[cur.output.address.id]: Decimal(
 														inputItem.amount
-													).toFixed(2),
+													).toNumber(),
 												};
 											}
 											return pre;
@@ -519,7 +523,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 								tripData.addresses.map(({ id, name }) => [id, name])
 							)}
 							amount={Number(amount) || 0}
-							customSplit={customSplit}
+							customSplit={selectedSplit}
 							setCustomSplit={setCustomSplit}
 						/>
 					</div>
@@ -535,10 +539,11 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 							type='submit'
 							className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300'
 						>
-							{submitText}
+							{saving ? 'Saving… ⏳' : submitText}
 						</button>
 					</div>
-				</form>
+				</fieldset>
+ </form>
 			</div>
 		</div>
 	);
