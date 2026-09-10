@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { normalizeTrip } from './recordInput';
 import { refreshTrip } from './sync';
 import {
@@ -198,13 +198,19 @@ export const useGraphQLClient = (): TripGraphQLClient => {
 function useTripMutation<T, V extends OperationVariables>(document: DocumentNode, tripId?: string): MutationTuple<T, V> {
  const client = useApolloClient();
  const [mutate, result] = useMutation<T, V>(document, { fetchPolicy: 'no-cache' });
+ const [pendingCount, setPendingCount] = useState(0);
  const execute: MutationTuple<T, V>[0] = async options => {
-  const response = await mutate(options);
-  if (!response.errors?.length && response.data) {
-   const id = tripId ?? options?.variables?.tripId;
-   if (typeof id === 'string') await refreshTrip(client, id);
+  setPendingCount(count => count + 1);
+  try {
+   const response = await mutate(options);
+   if (!response.errors?.length && response.data) {
+    const id = tripId ?? options?.variables?.tripId;
+    if (typeof id === 'string') await refreshTrip(client, id);
+   }
+   return response;
+  } finally {
+   setPendingCount(count => count - 1);
   }
-  return response;
  };
- return [execute, result];
+ return [execute, { ...result, loading: result.loading || pendingCount > 0 }];
 }

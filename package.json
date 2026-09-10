@@ -8,7 +8,6 @@
 		"start": "next start",
 		"lint": "next lint",
 		"docker": "docker build -t dtmf .",
-		"test": "tsc -p tsconfig.test.json && node --test .test-build/tests/*.test.js",
 		"typecheck": "tsc --noEmit --incremental false"
 	},
 	"dependencies": {

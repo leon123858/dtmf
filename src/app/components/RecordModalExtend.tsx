@@ -64,9 +64,7 @@ export const RecordModalExtend: React.FC<RecordModalExtendProps> = ({
 						<span className='text-gray-600'>已分配總額:</span>
 						<span
 							className={
-								calculateCustomSplitSum(customSplit).eq(
-									new Decimal(Number(amount) || 0)
-								)
+								calculateCustomSplitSum(customSplit).toFixed(2) === new Decimal(amount).toFixed(2)
 									? 'text-green-600'
 									: 'text-red-600'
 							}

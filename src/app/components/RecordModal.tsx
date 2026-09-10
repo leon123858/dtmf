@@ -241,9 +241,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 			case SplitMethod.TRANSFER:
 			case SplitMethod.FIXED:
 				if (
-					!calculateCustomSplitSum(selectedSplit).eq(
-						new Decimal(Number(amount) || 0)
-					)
+					calculateCustomSplitSum(selectedSplit).toFixed(2) !== new Decimal(finalAmount).toFixed(2)
 				) {
 					setErrorText('自訂分攤金額總和有誤，請檢查後再提交。');
 					setShowError(true);

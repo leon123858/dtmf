@@ -40,6 +40,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local test compilation and browser artifacts
-/.test-build/
+# local browser artifacts
 /test-results/

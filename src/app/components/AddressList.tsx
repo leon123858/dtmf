@@ -13,10 +13,9 @@ export const AddressList = () => {
 
 	const [newAddress, setNewAddress] = useState('');
 	const [isAdding, setIsAdding] = useState(false);
-	const [editingAddressId, setEditingAddressId] = useState<string | null>(
-		null
-	);
-	const [editingAddressName, setEditingAddressName] = useState('');
+	const [editingAddress, setEditingAddress] = useState<{ id: string; name: string } | null>(null);
+	const editingAddressId = editingAddress?.id ?? null;
+	const editingAddressName = editingAddress?.name ?? '';
 	const [showError, setShowError] = useState(false);
 	const [errorMessage, setErrorMessage] = useState('');
 
@@ -82,13 +81,11 @@ export const AddressList = () => {
 	};
 
 	const stopEditingAddress = () => {
-		setEditingAddressId(null);
-		setEditingAddressName('');
+		setEditingAddress(null);
 	};
 
 	const handleStartEditingAddress = (addressId: string, name: string) => {
-		setEditingAddressId(addressId);
-		setEditingAddressName(name);
+		setEditingAddress({ id: addressId, name });
 	};
 
 	const handleUpdateAddress = () => {
@@ -114,7 +111,7 @@ export const AddressList = () => {
 		})
 			.then(() => {
 				setShowError(false);
-				stopEditingAddress();
+				setEditingAddress(current => current?.id === editingAddressId ? null : current);
 			})
 			.catch((error: unknown) => {
 				const message = error instanceof Error ? error.message : '';
@@ -155,7 +152,7 @@ export const AddressList = () => {
 										type='text'
 										value={editingAddressName}
 										onChange={(event) =>
-											setEditingAddressName(event.target.value)
+											setEditingAddress({ id: address.id, name: event.target.value })
 										}
 										onKeyDown={(event) => {
 											if (event.key === 'Enter') handleUpdateAddress();
@@ -211,6 +208,7 @@ export const AddressList = () => {
 					<input
 						type='text'
 						value={newAddress}
+						disabled={creating}
 						onChange={(e) => setNewAddress(e.target.value)}
 						placeholder='輸入新成員名稱'
 						className='flex-grow p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
@@ -223,6 +221,7 @@ export const AddressList = () => {
 					</button>
 					<button
 						onClick={() => setIsAdding(false)}
+						disabled={creating}
 						className='bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400'
 					>
 						取消

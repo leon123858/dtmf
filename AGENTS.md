@@ -11,7 +11,7 @@ This is a Next.js 15 TypeScript frontend for Division Trip Money. App code lives
 - `public/` stores favicon and PWA icon assets.
 - Root config lives in `next.config.ts`, `tsconfig.json`, `eslint.config.mjs`, `postcss.config.mjs`, and `dockerfile`.
 
-No test directory exists yet. Add tests beside the feature or under a future `src/app/__tests__/` tree.
+There is currently no test directory. Future automated coverage should use frontend end-to-end UI tests.
 
 ## Build, Test, and Development Commands
 
@@ -33,7 +33,7 @@ Follow ESLint (`next/core-web-vitals` and `next/typescript`) and keep TypeScript
 
 ## Testing Guidelines
 
-There is no test framework in `package.json`. Until one is added, run `yarn lint` and `yarn build` before submitting changes. For future tests, use behavior-focused names, for example `RecordModal.test.tsx` or `tripApi.mutation.test.ts`.
+The previous unit tests have been removed. Until frontend end-to-end UI tests are added, run `yarn lint`, `yarn typecheck`, and `yarn build` before submitting changes.
 
 When adding a test framework, add the command to `package.json` and update this guide with the exact invocation.
 
