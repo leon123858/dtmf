@@ -11,7 +11,7 @@ This is a Next.js 15 TypeScript frontend for Division Trip Money. App code lives
 - `public/` stores favicon and PWA icon assets.
 - Root config lives in `next.config.ts`, `tsconfig.json`, `eslint.config.mjs`, `postcss.config.mjs`, and `dockerfile`.
 
-There is currently no test directory. Future automated coverage should use frontend end-to-end UI tests.
+Browser end-to-end tests live in `e2e/`, with Playwright configuration in `playwright.config.ts` and backend orchestration in `scripts/test-e2e.mjs`.
 
 ## Build, Test, and Development Commands
 
@@ -33,7 +33,9 @@ Follow ESLint (`next/core-web-vitals` and `next/typescript`) and keep TypeScript
 
 ## Testing Guidelines
 
-The previous unit tests have been removed. Until frontend end-to-end UI tests are added, run `yarn lint`, `yarn typecheck`, and `yarn build` before submitting changes.
+Run `yarn lint`, `yarn typecheck`, `yarn build`, and `yarn test:e2e` before submitting changes. Install Chromium once with `yarn playwright install chromium`. Use `yarn test:e2e --headed` to watch the browser.
+
+The E2E runner reuses a healthy backend on port 8080 or runs `make serve` in `../dtm`. Backend startup failure or a 120-second startup timeout prints SKIPPED and exits successfully; frontend/browser/assertion failures remain failures. Tests create unique trips and do not clear existing backend data.
 
 When adding a test framework, add the command to `package.json` and update this guide with the exact invocation.
 

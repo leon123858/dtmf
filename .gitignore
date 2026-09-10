@@ -42,3 +42,5 @@ next-env.d.ts
 
 # local browser artifacts
 /test-results/
+
+/playwright-report/

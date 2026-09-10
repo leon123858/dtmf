@@ -365,10 +365,10 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 				<form onSubmit={handleSubmit}>
  <fieldset disabled={saving}>
 					<div className='mb-4'>
-						<label className='block text-gray-700 text-sm font-bold mb-2'>
+						<label htmlFor='record-name' className='block text-gray-700 text-sm font-bold mb-2'>
 							項目名稱
 						</label>
-						<input
+						<input id='record-name'
 							type='text'
 							value={name}
 							onChange={(e) => setName(e.target.value)}
@@ -377,10 +377,10 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 						/>
 					</div>
 					<div className='mb-4'>
-						<label className='block text-gray-700 text-sm font-bold mb-2'>
+						<label htmlFor='record-date' className='block text-gray-700 text-sm font-bold mb-2'>
 							日期
 						</label>
-						<input
+						<input id='record-date'
 							type='datetime-local'
 							value={formattedTime}
 							onChange={(e) => {
@@ -397,10 +397,10 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 						/>
 					</div>
 					<div className='mb-4'>
-						<label className='block text-gray-700 text-sm font-bold mb-2'>
+						<label htmlFor='record-amount' className='block text-gray-700 text-sm font-bold mb-2'>
 							金額
 						</label>
-						<input
+						<input id='record-amount'
 							type='number'
 							value={amount}
 							min={0}
@@ -411,7 +411,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 						/>
 					</div>
 					<div className='mb-4'>
-						<label className='block text-gray-700 text-sm font-bold mb-2'>
+						<label htmlFor='record-payer' className='block text-gray-700 text-sm font-bold mb-2'>
 							預付人{' '}
 							{tripData.addresses.length == 0 && (
 								<>
@@ -419,7 +419,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 								</>
 							)}
 						</label>
-						<select
+						<select id='record-payer'
 							value={prePayAddress}
 							onChange={(e) => setPrePayAddress(e.target.value)}
 							className='shadow border rounded w-full py-2 px-3 text-gray-700'
