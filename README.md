@@ -31,7 +31,14 @@ The Chromium smoke test covers trip creation, member creation/rename/removal,
 expense creation/editing, equal splitting, repayment/deletion, record history,
 sharing and reopening a trip from browsing history.
 
-The runner checks `http://127.0.0.1:8080/health`, reuses a healthy backend,
+Before starting services, the runner launches and closes Chromium with a
+30-second launch timeout. Missing Playwright, Chromium, system libraries, or a
+display for headed mode produce an error with the original cause and repair
+guidance, and exit nonzero. Nothing is installed automatically. The probe honors
+`--headed`, Inspector `--debug`, and `PWDEBUG=1`; CI defaults to headless mode.
+This checks browser availability, not whether Next.js itself can start.
+
+The runner then checks `http://127.0.0.1:8080/health`, reuses a healthy backend,
 or starts it with `make serve` in `../dtm`. If backend startup fails (including
 a missing directory) or takes longer than 120 seconds, it prints `SKIPPED`
 with the reason and exits with code 0. This means the browser test did not run.
@@ -52,3 +59,7 @@ there is no trip deletion API. The default `make serve` uses an in-memory backen
 
 Failures retain screenshots and traces in `test-results/`; open the HTML report
 with `yarn playwright show-report`. These artifacts are ignored by Git.
+Preflight failures happen before tests and do not create these artifacts.
+Next.js/Playwright startup and test errors retain their original terminal output.
+
+Run browser preflight unit checks with `yarn test:e2e:preflight`.

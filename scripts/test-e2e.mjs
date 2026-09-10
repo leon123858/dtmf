@@ -23,7 +23,12 @@ function signalChildren(signal) {
   for (const { child } of children) {
     if (!child.pid) continue;
     try { process.kill(-child.pid, signal); }
-    catch (error) { if (error.code !== 'ESRCH') throw error; }
+    catch (error) {
+      if (error.code !== 'ESRCH') {
+        console.error(`[E2E] Cleanup failed (${signal}, pid ${child.pid}):`, error);
+        if (!process.exitCode) process.exitCode = 1;
+      }
+    }
   }
 }
 
@@ -46,6 +51,18 @@ async function healthy() {
 }
 
 async function main() {
+  console.log('[E2E] Checking Chromium before starting services.');
+  const probe = start(process.execPath, [
+    fileURLToPath(new URL('./check-e2e-browser.mjs', import.meta.url)),
+    ...process.argv.slice(2),
+  ], root);
+  const probeCode = await probe.completion;
+  if (interrupted) return;
+  if (probeCode !== 0) {
+    console.error('[E2E] Browser preflight failed; services and tests were not started.', probe.error ?? '');
+    process.exitCode = probeCode;
+    return;
+  }
   if (!(await healthy())) {
     console.log('[E2E] Starting backend: cd ../dtm && make serve');
     const backend = start('make', ['serve'], backendDirectory);
@@ -69,11 +86,18 @@ async function main() {
     'test', ...process.argv.slice(2),
   ], root);
   const code = await runner.completion;
-  if (!interrupted) process.exitCode = code;
+  if (!interrupted) {
+    if (runner.error) console.error('[E2E] Could not start Playwright:', runner.error);
+    else if (code !== 0) console.error(`[E2E] Playwright exited with code ${code}. Check the Next.js/Playwright output above for startup or test errors.`);
+    process.exitCode = code || process.exitCode;
+  }
 }
 
 try { await main(); }
-catch (error) { console.error(error); process.exitCode = 1; }
+catch (error) {
+  console.error('[E2E] Runner failed:', error);
+  if (!interrupted) process.exitCode = 1;
+}
 finally {
   clearTimeout(forceStopTimer);
   signalChildren('SIGTERM');
