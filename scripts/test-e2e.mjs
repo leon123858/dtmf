@@ -1,4 +1,5 @@
-import { spawn } from 'node:child_process';
+import { spawn, execSync } from 'node:child_process';
+const isWin = process.platform === 'win32';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
@@ -9,7 +10,7 @@ let interrupted = false;
 let forceStopTimer;
 
 function start(command, args, cwd) {
-  const child = spawn(command, args, { cwd, stdio: 'inherit', detached: true });
+  const child = spawn(command, args, { cwd, stdio: 'inherit', detached: !isWin, shell: isWin && command !== process.execPath });
   const state = { child, done: false, error: null, completion: null };
   state.completion = new Promise(resolve => {
     child.once('error', error => { state.error = error; state.done = true; resolve(1); });
@@ -22,9 +23,14 @@ function start(command, args, cwd) {
 function signalChildren(signal) {
   for (const { child } of children) {
     if (!child.pid) continue;
-    try { process.kill(-child.pid, signal); }
-    catch (error) {
-      if (error.code !== 'ESRCH') {
+    try {
+      if (isWin) {
+        execSync(`taskkill /pid ${child.pid} /t /f`, { stdio: 'ignore' });
+      } else {
+        process.kill(-child.pid, signal);
+      }
+    } catch (error) {
+      if (!isWin && error.code !== 'ESRCH') {
         console.error(`[E2E] Cleanup failed (${signal}, pid ${child.pid}):`, error);
         if (!process.exitCode) process.exitCode = 1;
       }
@@ -99,6 +105,9 @@ catch (error) {
   if (!interrupted) process.exitCode = 1;
 }
 finally {
+  if (process.exitCode !== 0 && !interrupted) {
+    console.error('\n[E2E] Tip: If tests failed due to environment or browser issues, run `yarn test:e2e:check` to diagnose.');
+  }
   clearTimeout(forceStopTimer);
   signalChildren('SIGTERM');
   if (children.length) {

@@ -4,7 +4,7 @@
 	"private": true,
 	"scripts": {
 		"test:e2e": "node scripts/test-e2e.mjs",
-		"test:e2e:preflight": "node --test scripts/check-e2e-browser.test.mjs",
+		"test:e2e:check": "node scripts/check-e2e-browser.mjs",
 		"dev": "next dev --turbopack",
 		"build": "next build",
 		"start": "next start",
@@ -28,7 +28,7 @@
 	},
 	"devDependencies": {
 		"@eslint/eslintrc": "^3",
-		"@playwright/test": "^1.63.0",
+		"@playwright/test": "^1.62.1",
 		"@tailwindcss/postcss": "^4",
 		"@types/node": "^20",
 		"@types/react": "^19",
