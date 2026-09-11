@@ -11,7 +11,7 @@ import { ConfirmModal } from '@/app/components/ConfirmModal';
 import { RecordCard } from '@/app/components/RecordCard';
 import { RecordDetails } from '@/app/components/RecordDetails';
 
-const CARD_HEIGHT = 148;
+const CARD_HEIGHT = 204;
 const SEPARATOR_HEIGHT = 44;
 
 export function RecordList({ onEdit }: { onEdit: (record: Record) => void }) {
