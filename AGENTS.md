@@ -35,7 +35,9 @@ Follow ESLint (`next/core-web-vitals` and `next/typescript`) and keep TypeScript
 
 Run `yarn lint`, `yarn typecheck`, `yarn build`, and `yarn test:e2e` before submitting changes. Install Chromium once with `yarn playwright install chromium`. Use `yarn test:e2e --headed` to watch the browser.
 
-The E2E runner first launches and closes Chromium with a 30-second launch timeout. Browser preflight failures print the original error and repair guidance, exit nonzero, and do not start services. It respects headed/Inspector mode and does not install dependencies automatically. Run its Node.js unit tests with `yarn test:e2e:preflight`.
+The E2E runner first launches and closes Chromium with a 30-second launch timeout. Browser preflight failures print the original error and repair guidance, exit nonzero, and do not start services. It respects headed/Inspector mode and does not install dependencies automatically.
+
+Run `yarn test:e2e:records` for deterministic record-list, mobile navigation, and record-form browser tests without a backend. This runs the browser preflight and uses intercepted GraphQL fixtures. Use `yarn test:e2e:records --headed` to watch. Screenshots and JSON layout measurements are attached to the Playwright report and stored under `test-results/record-list/`.
 
 After preflight, the runner reuses a healthy backend on port 8080 or runs `make serve` in `../dtm`. Backend startup failure or a 120-second startup timeout prints SKIPPED and exits successfully; frontend/browser/assertion failures remain failures. Tests create unique trips and do not clear existing backend data.
 

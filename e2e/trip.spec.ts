@@ -36,7 +36,7 @@ test('旅程主要功能：成員、帳目、分帳、還款、分享與歷史',
   });
 
   async function expectDebt(amount: string) {
-    await page.getByRole('button', { name: '分帳結果', exact: true }).click();
+    await page.getByRole('button', { name: '分帳', exact: true }).click();
     await expect(page.getByRole('button', { name: 'payback', exact: true })).toHaveCount(1);
     const payer = page.getByText('Bob', { exact: true }).locator('..');
     await expect(payer).toContainText(`$${amount}`);
@@ -47,7 +47,7 @@ test('旅程主要功能：成員、帳目、分帳、還款、分享與歷史',
 
   await test.step('新增均分帳目', async () => {
     await page.getByRole('button', { name: '帳目', exact: true }).click();
-    await page.getByRole('button', { name: '新增', exact: true }).click();
+    await page.getByRole('button', { name: '記帳', exact: true }).click();
     await form.getByLabel('項目名稱', { exact: true }).fill('Lunch');
     await form.getByLabel('金額', { exact: true }).fill('300');
     await form.getByLabel('預付人').selectOption({ label: 'Alice' });
@@ -62,7 +62,8 @@ test('旅程主要功能：成員、帳目、分帳、還款、分享與歷史',
 
   await test.step('編輯帳目與結算', async () => {
     await page.getByRole('button', { name: '帳目', exact: true }).click();
-    await page.getByRole('button', { name: 'Edit Lunch', exact: true }).click();
+    await page.getByRole('button', { name: '更多操作 Lunch', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Edit Lunch', exact: true }).click();
     await form.getByLabel('項目名稱', { exact: true }).fill('Dinner');
     await form.getByLabel('金額', { exact: true }).fill('400');
     await form.getByRole('button', { name: '儲存變更' }).click();
@@ -80,7 +81,8 @@ test('旅程主要功能：成員、帳目、分帳、還款、分享與歷史',
     await expect(page.getByText('帳目計算中，或沒有需要分帳的項目。')).toBeVisible();
     await page.getByRole('button', { name: '帳目', exact: true }).click();
     await expect(page.getByText(repayment, { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: `Delete ${repayment}`, exact: true }).click();
+    await page.getByRole('button', { name: `更多操作 ${repayment}`, exact: true }).click();
+    await page.getByRole('menuitem', { name: `Delete ${repayment}`, exact: true }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(page.getByRole('dialog')).not.toBeVisible();
     await expect(page.getByText(repayment, { exact: true })).toHaveCount(0);
@@ -92,14 +94,14 @@ test('旅程主要功能：成員、帳目、分帳、還款、分享與歷史',
     await page.getByRole('button', { name: 'Open menu', exact: true }).click();
     await page.getByRole('switch', { name: 'Record history', exact: true }).check();
     await page.getByRole('button', { name: 'Close menu', exact: true }).click();
-    await expect(page.getByText(/\[Old Version.*Lunch/)).toBeVisible();
-    await expect(page.getByText(/\[Deleted.*Bob payback to Alice/)).toBeVisible();
+    await expect(page.locator('article').filter({ has: page.getByText('Lunch', { exact: true }) }).getByRole('img', { name: '舊版本' })).toBeVisible();
+    await expect(page.locator('article').filter({ has: page.getByText(repayment, { exact: true }) }).getByRole('img', { name: '已刪除' })).toBeVisible();
   });
 
   await test.step('分享與瀏覽歷史、重新整理', async () => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'http://127.0.0.1:3100' });
-    await page.getByRole('button', { name: '🔗 分享', exact: true }).click();
-    await expect(page.getByRole('button', { name: '已複製！', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: '分享行程', exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: '已複製行程連結' })).toBeVisible();
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(tripUrl);
     await page.getByRole('button', { name: 'Open menu', exact: true }).click();
     await page.getByRole('button', { name: '瀏覽歷史', exact: true }).click();

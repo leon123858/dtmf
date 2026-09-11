@@ -95,11 +95,11 @@ export const SideBar: React.FC<SideBarProps> = ({
 					onClick={() => {
 						setIsOpen(!isOpen);
 					}}
-					aria-label='Open menu' aria-expanded={isOpen} className='shrink-0 text-gray-700 text-2xl font-bold rounded-lg hover:bg-gray-300 p-2 transition-all duration-300'
+					aria-label='Open menu' aria-expanded={isOpen} className='shrink-0 text-gray-700 text-2xl font-bold rounded-lg hover:bg-gray-300 flex h-11 w-11 items-center justify-center transition-all duration-300'
 				>
-					<Bars3BottomLeftIcon className='h-8 w-8' />
+					<Bars3BottomLeftIcon className='h-6 w-6' />
 				</button>
-				<h1 className='min-w-0 text-2xl sm:text-3xl font-bold text-gray-800 truncate'>{name}</h1>
+				<h1 className='min-w-0 text-xl leading-7 font-bold text-gray-800 line-clamp-2 [overflow-wrap:anywhere]'>{name}</h1>
 			</div>
 		</>
 	);

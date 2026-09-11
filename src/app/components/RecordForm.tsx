@@ -10,8 +10,11 @@ import { RecordModalExtend } from './RecordModalExtend';
 import { Record } from '../lib/types';
 import { recordToInput } from '../lib/tripApi/recordInput';
 
-interface RecordModalProps {
-	onClose: () => void;
+interface RecordFormProps {
+	onCancel: () => void;
+ onSuccess: () => void;
+ onDirty: () => void;
+ onBusyChange: (busy: boolean) => void;
 	record:
 		| Record // edit
 		| (Omit<Record, 'id' | 'time' | 'isValid'> & { id?: ID; time?: string }) // payback
@@ -111,8 +114,8 @@ export function countCustomSplitNotNegCnt(
 	}).length;
 }
 
-export const RecordModal: React.FC<RecordModalProps> = ({
-	onClose,
+export const RecordForm: React.FC<RecordFormProps> = ({
+	onCancel, onSuccess, onDirty, onBusyChange,
 	record,
 }) => {
 	const {
@@ -122,7 +125,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 
 	const context = useContext(SingleTripContext);
 	const isSubmittingRef = React.useRef(false);
- const [saving, setSaving] = useState(false);
+ const [saving, setSavingState] = useState(false);
+ const setSaving = (busy: boolean) => { setSavingState(busy); onBusyChange(busy); };
 	const [showError, setShowError] = useState(false);
 	const [errorText, setErrorText] = useState('');
 	const { data: tripData } = useTrip(context?.tripId || '');
@@ -185,15 +189,6 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 		}
 	}, [time]);
 
-	// auto setShowError to false after 3 seconds
-	useEffect(() => {
-		if (showError) {
-			const timer = setTimeout(() => {
-				setShowError(false);
-			}, 3000);
-			return () => clearTimeout(timer);
-		}
-	}, [showError]);
 
 	if (!context) return null;
 	if (!tripData) return null;
@@ -303,7 +298,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 					},
 				},
 			})
-				.then(() => onClose())
+				.then(() => onSuccess())
 				.catch((error) => {
 					console.error('Error updating record:', error);
 					setErrorText(
@@ -327,7 +322,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 					input: newRecordData,
 				},
 			})
-				.then(() => onClose())
+				.then(() => onSuccess())
 				.catch((error) => {
 					console.error('Error creating record:', error);
 					setErrorText(
@@ -346,23 +341,25 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 		}
 	};
 
-	const title = record?.id ? '編輯帳目' : '新增帳目';
+	const title = record?.id ? '編輯帳目' : record ? '還款' : '新增帳目';
 	const submitText = record?.id ? '儲存變更' : '新增';
 
 	return (
-		<div className='fixed inset-0 bg-black bg-opacity-50 flex justify-center items-start p-4 z-30 overflow-y-auto'>
+		<div className='min-w-0' onChangeCapture={onDirty} onClickCapture={event => {
+            if ((event.target as HTMLElement).closest('button[type=button]')) onDirty();
+        }}>
 			{showError && (
 				// show error on top of modal
 				<div
-					className='fixed top-5 left-1/2 -translate-x-1/2 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md z-50'
+					className='mb-3 break-words bg-red-50 text-red-700 p-3 rounded-lg'
 					role='alert'
 				>
 					<span className='block sm:inline'>{errorText}</span>
 				</div>
 			)}
-			<div className='bg-white rounded-lg shadow-xl p-6 w-full max-w-md'>
+			<div className='bg-white rounded-xl p-4 w-full min-w-0 [overflow-wrap:anywhere] [&_input]:min-w-0 [&_select]:max-w-full [&_button]:min-h-11'>
 				<h2 className='text-2xl font-bold mb-4'>{title}</h2>
-				<form onSubmit={handleSubmit}>
+				<form aria-label={title} onSubmit={handleSubmit}>
  <fieldset disabled={saving}>
 					<div className='mb-4'>
 						<label htmlFor='record-name' className='block text-gray-700 text-sm font-bold mb-2'>
@@ -528,7 +525,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 					<div className='flex items-center justify-end space-x-3 mt-6'>
 						<button
 							type='button'
-							onClick={onClose}
+							onClick={onCancel}
 							className='bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-300'
 						>
 							取消

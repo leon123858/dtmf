@@ -1,9 +1,11 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { ApolloWrapper } from './lib/tripApi/wrapper';
 
 const inter = Inter({ subsets: ['latin'] });
+
+export const viewport: Viewport = { viewportFit: 'cover' };
 
 export const metadata: Metadata = {
 	title: '旅遊分帳應用',

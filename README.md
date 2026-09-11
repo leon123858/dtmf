@@ -61,5 +61,3 @@ Failures retain screenshots and traces in `test-results/`; open the HTML report
 with `yarn playwright show-report`. These artifacts are ignored by Git.
 Preflight failures happen before tests and do not create these artifacts.
 Next.js/Playwright startup and test errors retain their original terminal output.
-
-Run browser preflight unit checks with `yarn test:e2e:preflight`.

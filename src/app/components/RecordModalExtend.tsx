@@ -5,7 +5,7 @@ import {
 	SplitMethod,
 	calculateCustomSplitSum,
 	countCustomSplitNotNegCnt,
-} from './RecordModal';
+} from './RecordForm';
 import { longStringSimplify } from '@/app/lib/utils';
 import { Decimal } from 'decimal.js';
 
