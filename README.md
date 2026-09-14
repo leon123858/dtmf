@@ -25,12 +25,4 @@ Install dependencies with `yarn install` and Chromium with `yarn playwright inst
 yarn test:e2e:check           # browser, frontend startup, backend health; no specs
 yarn test:e2e                # all specs, headless
 yarn test:e2e:headed         # all specs, visible browser with a 200ms delay between browser operations
-yarn test:e2e:check --headed # also check that a graphical display is available
-yarn test:node               # runner and browser preflight unit tests
 ```
-
-The single runner executes `e2e/fixtures/**/*.spec.ts` first and `e2e/integration/**/*.spec.ts` second. Add new specs to the appropriate directory; no package.json changes are needed. Each suite runs once with one worker and no retries. Headed mode does not open Inspector or pause execution; use an explicit `--debug` when debugging interactively.
-
-Preflight failures stop before services start. Backend startup failures and test failures return nonzero; fixture failures still allow integration tests to run. The runner shuts down its own services on completion or Ctrl+C and leaves a reused backend running. Environment checks start and clean up services but never create test trips.
-
-Reports: `playwright-report/fixtures/` and `playwright-report/integration/`. Screenshots, traces, and JSON layout measurements: `test-results/<suite>/`. For example, use `yarn playwright show-report playwright-report/fixtures` to inspect fixture results.

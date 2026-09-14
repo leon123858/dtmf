@@ -11,8 +11,14 @@ on:
 
 # 定義工作流程中的任務
 jobs:
+  e2e:
+    uses: ./.github/workflows/e2e.yml
+    permissions:
+      contents: read
+
   # 定義一個名為 "build-and-push" 的任務
   build-and-push:
+    needs: e2e
     # 指定此任務運行的虛擬環境
     runs-on: ubuntu-latest
 

@@ -77,6 +77,7 @@ test('cleanup terminates an owned backend process group but never a reused backe
     let requests = 0;
     let starts = 0;
     const r = createRuntime({
+      env: {},
       spawnProcess() { starts++; return Object.assign(new EventEmitter(), { pid: 12345 }); },
       killProcess: (...args) => signals.push(args),
       request: async () => ({ ok: reuse || requests++ > 0, json: async () => ({ status: 'ok' }) }),
@@ -91,6 +92,7 @@ test('interrupt releases a stuck child and cleanup escalates to SIGKILL', { skip
   const signals = [];
   const before = process.listenerCount('SIGINT');
   const r = createRuntime({
+    env: {},
     spawnProcess: () => Object.assign(new EventEmitter(), { pid: 12345 }),
     killProcess: (...args) => signals.push(args),
   });
@@ -107,6 +109,7 @@ test('interrupt releases a stuck child and cleanup escalates to SIGKILL', { skip
 test('cleanup retains exited process groups in case browser descendants survived', { skip: process.platform === 'win32' }, async () => {
   const signals = [];
   const r = createRuntime({
+    env: {},
     spawnProcess() {
       const child = Object.assign(new EventEmitter(), { pid: 12345 });
       queueMicrotask(() => child.emit('exit', 1));
@@ -116,4 +119,35 @@ test('cleanup retains exited process groups in case browser descendants survived
   });
   try { assert.equal(await r.test('fixtures', []), 1); } finally { await r.cleanup(); }
   assert.deepEqual(signals, [[-12345, 'SIGTERM'], [-12345, 'SIGKILL']]);
+});
+
+for (const readyAfter of [0, 2, Infinity]) {
+  test(`external backend readiness (${readyAfter}) never starts or kills a service`, async () => {
+    let elapsed = 0;
+    let requests = 0;
+    const r = createRuntime({
+      env: { E2E_EXTERNAL_BACKEND: '1', E2E_BACKEND_TIMEOUT_MS: '1500' },
+      now: () => elapsed,
+      sleep: async ms => { elapsed += ms; },
+      spawnProcess: () => assert.fail('external backend must not spawn a process'),
+      killProcess: () => assert.fail('external backend must not be killed'),
+      request: async url => {
+        assert.equal(url, 'http://127.0.0.1:8080/health');
+        return { ok: true, json: async () => ({ status: requests++ >= readyAfter ? 'ok' : 'starting' }) };
+      },
+    });
+    try {
+      if (readyAfter === Infinity) await assert.rejects(r.backend(), /timed out after 1.5 seconds/);
+      else await r.backend();
+    } finally { await r.cleanup(); }
+    assert.equal(requests, readyAfter === Infinity ? 3 : readyAfter + 1);
+  });
+}
+
+test('rejects invalid backend timeouts before installing signal handlers', () => {
+  const before = process.listenerCount('SIGINT');
+  for (const value of ['', '0', '-1', 'NaN', 'Infinity', '1.5']) {
+    assert.throws(() => createRuntime({ env: { E2E_BACKEND_TIMEOUT_MS: value } }), /positive integer/);
+  }
+  assert.equal(process.listenerCount('SIGINT'), before);
 });

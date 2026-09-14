@@ -57,3 +57,11 @@ Pull requests should include a summary, reason for change, screenshots or screen
 ## Security & Configuration Tips
 
 Do not commit credentials, secret backend URLs, or local database state. Keep `.next/` and `node_modules/` out of commits. When touching GraphQL client code, verify query, mutation, and subscription behavior against the expected backend version.
+
+## E2E CI
+
+`.github/workflows/e2e.yml` runs on PRs and manual dispatch and is reusable through `workflow_call`. The image publication workflow calls it before `build-and-push`, including main pushes and manual releases. Preserve this dependency so failed tests block GHCR and GCP publication.
+
+CI runs `make serve` from a fresh backend default-branch clone inside `golang:1.25-bookworm` (memory database / Go channel), publishing port 8080 to runner loopback. A Playwright container uses host networking and runs `yarn test:node` and `yarn test:e2e`. Keep its `PLAYWRIGHT_VERSION` synchronized with the installed lockfile version; no browser installation is needed in CI.
+
+`E2E_EXTERNAL_BACKEND=1` makes the runner wait for the external backend without local fallback or ownership. `E2E_BACKEND_TIMEOUT_MS` is a positive integer, defaults to 120000, and is 300000 in CI. Local defaults remain unchanged. Always retain diagnostics and clean up workflow-owned containers. Artifacts include backend commit SHA, container logs, and existing E2E outputs, retained for 14 days; job timeout is 20 minutes.

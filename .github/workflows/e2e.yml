@@ -1,0 +1,72 @@
+name: E2E
+
+on:
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PLAYWRIGHT_VERSION: '1.62.1'
+      BACKEND_CONTAINER: dtmf-backend-${{ github.run_id }}-${{ github.run_attempt }}
+      TEST_CONTAINER: dtmf-e2e-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start memory backend in Go container
+        run: |
+          mkdir -p ci-artifacts
+          docker run --detach --name "$BACKEND_CONTAINER" \
+            --publish 127.0.0.1:8080:8080 \
+            golang:1.25-bookworm sh -ec '
+              git clone --depth 1 https://github.com/leon123858/dtm /tmp/dtm
+              cd /tmp/dtm
+              git rev-parse HEAD > /tmp/backend-commit.txt
+              cat /tmp/backend-commit.txt
+              exec make serve
+            '
+
+      - name: Run runner unit tests and browser E2E
+        run: |
+          docker run --name "$TEST_CONTAINER" --init --network host --ipc host \
+            --volume "$GITHUB_WORKSPACE:/work" --workdir /work \
+            --env CI=true --env E2E_EXTERNAL_BACKEND=1 \
+            --env E2E_BACKEND_TIMEOUT_MS=300000 --env PLAYWRIGHT_VERSION \
+            "mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-noble" bash -ec '
+              npm install --global yarn@1.22.22 --force
+              yarn install --frozen-lockfile
+              node -e '\''const actual = require("@playwright/test/package.json").version; if (actual !== process.env.PLAYWRIGHT_VERSION) throw new Error(`Playwright ${actual} does not match container ${process.env.PLAYWRIGHT_VERSION}`)'\''
+              yarn test:node
+              yarn test:e2e
+            '
+
+      - name: Collect container diagnostics and clean up
+        if: always()
+        run: |
+          mkdir -p ci-artifacts
+          for container in "$BACKEND_CONTAINER" "$TEST_CONTAINER"; do
+            if docker container inspect "$container" > /dev/null 2>&1; then
+              docker logs "$container" > "ci-artifacts/$container.log" 2>&1 || true
+              if [ "$container" = "$BACKEND_CONTAINER" ]; then
+                docker cp "$container:/tmp/backend-commit.txt" ci-artifacts/backend-commit.txt || true
+              fi
+              docker rm --force "$container"
+            fi
+          done
+
+      - name: Upload E2E reports and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/
+            ci-artifacts/
+          retention-days: 14

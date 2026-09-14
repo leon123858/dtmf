@@ -44,7 +44,12 @@ export async function runWorkflow(options, runtime) {
   }
 }
 
-export function createRuntime({ spawnProcess = spawn, killProcess = process.kill, request = fetch } = {}) {
+export function createRuntime({ spawnProcess = spawn, killProcess = process.kill, request = fetch,
+  env = process.env, now = Date.now, sleep = delay } = {}) {
+  const backendTimeout = Number(env.E2E_BACKEND_TIMEOUT_MS ?? 120_000);
+  if (!Number.isSafeInteger(backendTimeout) || backendTimeout <= 0) {
+    throw new Error('[E2E] E2E_BACKEND_TIMEOUT_MS must be a positive integer.');
+  }
   const isWin = process.platform === 'win32';
   const children = new Set();
   let interrupted = 0;
@@ -103,14 +108,15 @@ export function createRuntime({ spawnProcess = spawn, killProcess = process.kill
     } catch { return false; }
   }
   async function waitReady(state, url, backend = false) {
-    const deadline = Date.now() + 120_000;
-    while (Date.now() < deadline) {
+    const timeout = backend ? backendTimeout : 120_000;
+    const deadline = now() + timeout;
+    while (now() < deadline) {
       assertRunning();
-      if (state.done) throw new Error(`[E2E] Service exited before ready: ${state.error?.message ?? url}`);
+      if (state?.done) throw new Error(`[E2E] Service exited before ready: ${state.error?.message ?? url}`);
       if (await healthy(url, backend)) return;
-      await delay(500);
+      await sleep(500);
     }
-    throw new Error(`[E2E] Service startup timed out after 120 seconds: ${url}`);
+    throw new Error(`[E2E] Service startup timed out after ${timeout / 1000} seconds: ${url}`);
   }
   return {
     get interrupted() { return interrupted; },
@@ -131,6 +137,11 @@ export function createRuntime({ spawnProcess = spawn, killProcess = process.kill
     },
     async backend() {
       assertRunning();
+      if (env.E2E_EXTERNAL_BACKEND === '1') {
+        console.log('[E2E] Waiting for external backend on port 8080.');
+        await waitReady(null, 'http://127.0.0.1:8080/health', true);
+        return;
+      }
       if (await healthy('http://127.0.0.1:8080/health', true)) {
         console.log('[E2E] Reusing healthy backend on port 8080.');
         return;
