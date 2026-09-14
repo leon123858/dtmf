@@ -62,8 +62,7 @@ test('旅程主要功能：成員、帳目、分帳、還款、分享與歷史',
 
   await test.step('編輯帳目與結算', async () => {
     await page.getByRole('button', { name: '帳目', exact: true }).click();
-    await page.getByRole('button', { name: '更多操作 Lunch', exact: true }).click();
-    await page.getByRole('menuitem', { name: 'Edit Lunch', exact: true }).click();
+    await page.getByRole('button', { name: '編輯 Lunch', exact: true }).click();
     await form.getByLabel('項目名稱', { exact: true }).fill('Dinner');
     await form.getByLabel('金額', { exact: true }).fill('400');
     await form.getByRole('button', { name: '儲存變更' }).click();
@@ -81,8 +80,7 @@ test('旅程主要功能：成員、帳目、分帳、還款、分享與歷史',
     await expect(page.getByText('帳目計算中，或沒有需要分帳的項目。')).toBeVisible();
     await page.getByRole('button', { name: '帳目', exact: true }).click();
     await expect(page.getByText(repayment, { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: `更多操作 ${repayment}`, exact: true }).click();
-    await page.getByRole('menuitem', { name: `Delete ${repayment}`, exact: true }).click();
+    await page.getByRole('button', { name: `刪除 ${repayment}`, exact: true }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(page.getByRole('dialog')).not.toBeVisible();
     await expect(page.getByText(repayment, { exact: true })).toHaveCount(0);

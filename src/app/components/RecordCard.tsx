@@ -41,12 +41,12 @@ export function RecordCard({ record, deleting, onDetails, onEdit, onDelete }: Re
 			{!historical && (
 				<div className='mt-3 flex gap-2 pt-1'>
 					<button type='button' aria-label={`編輯 ${record.name}`} onClick={() => onEdit(record)}
-						className='flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-50 py-2.5 text-sm font-medium text-blue-700 hover:bg-blue-100 focus-visible:outline-2 focus-visible:outline-blue-600'>
+						className='flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-50 py-3 text-sm font-medium text-blue-700 hover:bg-blue-100 focus-visible:outline-2 focus-visible:outline-blue-600'>
 						<Pencil size={16} aria-hidden='true' />
 						<span>編輯</span>
 					</button>
 					<button type='button' aria-label={`刪除 ${record.name}`} onClick={() => onDelete(record)} disabled={deleting}
-						className='flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-50 py-2.5 text-sm font-medium text-red-700 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-red-600 disabled:opacity-50'>
+						className='flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-50 py-3 text-sm font-medium text-red-700 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-red-600 disabled:opacity-50'>
 						<Trash2 size={16} aria-hidden='true' />
 						<span>刪除</span>
 					</button>

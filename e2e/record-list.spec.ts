@@ -89,7 +89,7 @@ for (const viewport of [{ width: 320, height: 844 }, { width: 390, height: 844 }
 			expect(row.cardHeight + 12).toBeLessThanOrEqual(220);
 		}
 		await expect(page.locator('[data-record-id="r1"] [data-record-amount]')).toHaveText('$1,234,567,890,123.45');
-		const more = page.locator('[data-record-id="r0"]').getByRole('button', { name: /更多操作/ });
+		const more = page.locator('[data-record-id="r0"]').getByRole('button', { name: /^編輯/ });
 		const box = await more.boundingBox();
 		expect(box!.width).toBeGreaterThanOrEqual(44);
 		expect(box!.height).toBeGreaterThanOrEqual(44);
@@ -128,24 +128,10 @@ test('details preserve full text and restore focus after virtual row unmount', a
 	await expect(page.getByRole('region', { name: '帳目列表' })).toBeFocused();
 });
 
-test('menu keyboard, outside click, scrolling, and edit', async ({ page }) => {
+test('edit button opens form', async ({ page }) => {
 	await mockTrip(page, makeRecords(200));
-	const trigger = page.locator('[data-record-id="r0"]').getByRole('button', { name: /更多操作/ });
-	await trigger.focus();
-	await page.keyboard.press('Enter');
-	await expect(page.getByRole('menuitem', { name: 'Edit Lunch', exact: true })).toBeFocused();
-	await page.keyboard.press('ArrowDown');
-	await expect(page.getByRole('menuitem', { name: 'Delete Lunch', exact: true })).toBeFocused();
-	await page.keyboard.press('Escape');
-	await expect(trigger).toBeFocused();
+	const trigger = page.locator('[data-record-id="r0"]').getByRole('button', { name: /^編輯/ });
 	await trigger.click();
-	await page.getByRole('heading', { name: 'Layout probe', exact: true }).click();
-	await expect(page.getByRole('menu')).toHaveCount(0);
-	await trigger.click();
-	await page.getByRole('region', { name: '帳目列表' }).evaluate(el => { el.scrollTop = 50; });
-	await expect(page.getByRole('menu')).toHaveCount(0);
-	await trigger.click();
-	await page.getByRole('menuitem', { name: 'Edit Lunch', exact: true }).click();
 	await expect(page.locator('form').getByLabel('項目名稱', { exact: true })).toHaveValue('Lunch');
 });
 
@@ -153,8 +139,7 @@ test('delete errors allow retry and busy state prevents duplicate submission', a
 	const state = await mockTrip(page, makeRecords(10));
 	state.failDelete = true;
 	state.delayDelete = 400;
-	await page.locator('[data-record-id="r0"]').getByRole('button', { name: /更多操作/ }).click();
-	await page.getByRole('menuitem', { name: 'Delete Lunch', exact: true }).click();
+	await page.locator('[data-record-id="r0"]').getByRole('button', { name: /^刪除/ }).click();
 	const dialog = page.getByRole('dialog', { name: '刪除帳目' });
 	await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
 	await expect(dialog.getByRole('button', { name: /Processing/ })).toBeDisabled();
@@ -178,7 +163,7 @@ test('history, large list, resize, date grouping and refreshed data', async ({ p
 	await expect(page.locator('[data-record-id="r0"]').getByRole('img', { name: '無效帳目' })).toBeVisible();
 	await expect(page.locator('[data-record-id="r1"]').getByRole('img', { name: '舊版本' })).toBeVisible();
 	await expect(page.locator('[data-record-id="r2"]').getByRole('img', { name: '已刪除' })).toBeVisible();
-	await expect(page.locator('[data-record-id="r1"]').getByRole('button', { name: /更多操作/ })).toHaveCount(0);
+	await expect(page.locator('[data-record-id="r1"]').getByRole('button', { name: /^編輯/ })).toHaveCount(0);
 	await page.locator('[data-record-id="r1"]').getByRole('button', { name: /^查看/ }).click();
 	await expect(page.getByRole('dialog').getByText('舊版本', { exact: true })).toBeVisible();
 	await page.keyboard.press('Escape');
@@ -285,8 +270,7 @@ test('replacing a draft requires confirmation and editing uses the entry page', 
  await page.getByLabel('項目名稱', { exact: true }).fill('保留內容');
  await page.getByRole('button', { name: '帳目', exact: true }).click();
  const edit = async () => {
-    await page.locator('[data-record-id="r0"]').getByRole('button', { name: /更多操作/ }).click();
-    await page.getByRole('menuitem', { name: 'Edit Lunch', exact: true }).click();
+    await page.locator('[data-record-id="r0"]').getByRole('button', { name: /^編輯/ }).click();
  };
  await edit();
  await page.getByRole('button', { name: '保留草稿' }).click();
