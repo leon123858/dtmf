@@ -13,18 +13,10 @@ export default defineConfig({
     baseURL: 'http://127.0.0.1:3100',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    launchOptions: { slowMo: process.env.E2E_HEADED === '1' ? 200 : 0 },
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  webServer: {
-    command: 'yarn dev --hostname 127.0.0.1 --port 3100',
-    url: 'http://127.0.0.1:3100',
-    reuseExistingServer: false,
-    timeout: 120_000,
-    gracefulShutdown: { signal: 'SIGTERM', timeout: 1000 },
-    env: {
-      NEXT_PUBLIC_API_HTTP_URL: 'http://127.0.0.1:8080',
-      NEXT_PUBLIC_API_WS_URL: 'ws://127.0.0.1:8080',
-      ADMIN_KEY: '',
-    },
-  },
+  projects: ['fixtures', 'integration'].map(name => ({
+    name, testDir: `./e2e/${name}`, outputDir: `test-results/${name}`,
+    use: { ...devices['Desktop Chrome'] },
+  })),
 });

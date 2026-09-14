@@ -1,117 +1,160 @@
-import { spawn, execSync } from 'node:child_process';
-const isWin = process.platform === 'win32';
+import { spawn, execFileSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { isHeaded } from './check-e2e-browser.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const backendDirectory = fileURLToPath(new URL('../../dtm/', import.meta.url));
-const children = [];
-let interrupted = false;
-let forceStopTimer;
+const local = path => fileURLToPath(new URL(path, import.meta.url));
 
-function start(command, args, cwd) {
-  const child = spawn(command, args, { cwd, stdio: 'inherit', detached: !isWin, shell: isWin && command !== process.execPath });
-  const state = { child, done: false, error: null, completion: null };
-  state.completion = new Promise(resolve => {
-    child.once('error', error => { state.error = error; state.done = true; resolve(1); });
-    child.once('exit', code => { state.done = true; resolve(code ?? 1); });
-  });
-  children.push(state);
-  return state;
+export function optionsFor(args, env = process.env) {
+  const check = args.includes('--check');
+  const playwrightArgs = args.filter(arg => arg !== '--check');
+  const headed = isHeaded(playwrightArgs, env);
+  if (headed && !playwrightArgs.includes('--headed')) playwrightArgs.push('--headed');
+  return { check, headed, playwrightArgs };
 }
 
-function signalChildren(signal) {
-  for (const { child } of children) {
-    if (!child.pid) continue;
+// Keep suite ordering and failure aggregation independent of process management.
+export async function runWorkflow(options, runtime) {
+  const results = [];
+  async function runSuite(name) {
+    try { results.push([name, await runtime.test(name, options.playwrightArgs)]); }
+    catch (error) { runtime.log(error); results.push([name, 1]); }
+  }
+  try {
+    await runtime.probe(options.headed);
+    await runtime.frontend();
+    if (!options.check) await runSuite('fixtures');
     try {
-      if (isWin) {
-        execSync(`taskkill /pid ${child.pid} /t /f`, { stdio: 'ignore' });
-      } else {
-        process.kill(-child.pid, signal);
-      }
+      await runtime.backend();
+      if (!options.check) await runSuite('integration');
     } catch (error) {
-      if (!isWin && error.code !== 'ESRCH') {
-        console.error(`[E2E] Cleanup failed (${signal}, pid ${child.pid}):`, error);
-        if (!process.exitCode) process.exitCode = 1;
+      runtime.log(error);
+      results.push(['backend', 1]);
+    }
+    runtime.log(options.check && !results.length ? '[E2E] Environment check passed.' :
+      `[E2E] Results: ${results.map(([name, code]) => `${name}: ${code === 0 ? 'PASSED' : 'FAILED'}`).join(', ')}`);
+    return results.some(([, code]) => code !== 0) ? 1 : 0;
+  } catch (error) {
+    runtime.log(error);
+    return 1;
+  } finally {
+    await runtime.cleanup();
+  }
+}
+
+export function createRuntime({ spawnProcess = spawn, killProcess = process.kill, request = fetch } = {}) {
+  const isWin = process.platform === 'win32';
+  const children = new Set();
+  let interrupted = 0;
+  const controller = new AbortController();
+  const signalChildren = signal => {
+    for (const state of children) {
+      if (!state.child.pid) continue;
+      try {
+        if (isWin) execFileSync('taskkill', ['/pid', String(state.child.pid), '/t', '/f'], { stdio: 'ignore' });
+        else killProcess(-state.child.pid, signal);
+      } catch (error) {
+        if (!isWin && error.code !== 'ESRCH') console.error('[E2E] Cleanup failed:', error);
       }
     }
-  }
-}
-
-for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143]]) {
-  process.on(signal, () => {
-    interrupted = true;
-    process.exitCode = code;
-    signalChildren('SIGTERM');
-    forceStopTimer ??= setTimeout(() => signalChildren('SIGKILL'), 5000);
+  };
+  const handlers = [['SIGINT', 130], ['SIGTERM', 143]].map(([signal, code]) => {
+    const handler = () => {
+      interrupted = code;
+      controller.abort();
+      signalChildren('SIGTERM');
+    };
+    process.on(signal, handler);
+    return [signal, handler];
   });
-}
-
-async function healthy() {
-  try {
-    const response = await fetch('http://127.0.0.1:8080/health', {
-      signal: AbortSignal.timeout(1000),
-    });
-    return response.ok && (await response.json()).status === 'ok';
-  } catch { return false; }
-}
-
-async function main() {
-  console.log('[E2E] Checking Chromium before starting services.');
-  const probe = start(process.execPath, [
-    fileURLToPath(new URL('./check-e2e-browser.mjs', import.meta.url)),
-    ...process.argv.slice(2),
-  ], root);
-  const probeCode = await probe.completion;
-  if (interrupted) return;
-  if (probeCode !== 0) {
-    console.error('[E2E] Browser preflight failed; services and tests were not started.', probe.error ?? '');
-    process.exitCode = probeCode;
-    return;
+  function assertRunning() {
+    if (interrupted) throw new Error('[E2E] Interrupted.');
   }
-  if (!(await healthy())) {
-    console.log('[E2E] Starting backend: cd ../dtm && make serve');
-    const backend = start('make', ['serve'], backendDirectory);
+  function start(command, args, cwd = root, env = process.env) {
+    assertRunning();
+    const child = spawnProcess(command, args, { cwd, env, stdio: 'inherit', detached: !isWin, shell: isWin && command !== process.execPath });
+    const state = { child, done: false, error: null };
+    state.completion = new Promise(resolve => {
+      child.once('error', error => { state.error = error; state.done = true; resolve(1); });
+      child.once('exit', code => { state.done = true; resolve(code ?? 1); });
+    });
+    children.add(state);
+    return state;
+  }
+  async function execute(command, args, env) {
+    const state = start(command, args, root, env);
+    // Abort lets finally clean up even if a child ignores SIGTERM.
+    const onAbort = new Promise(resolve => {
+      if (controller.signal.aborted) resolve(1);
+      else controller.signal.addEventListener('abort', () => resolve(1), { once: true });
+    });
+    const code = await Promise.race([state.completion, onAbort]);
+    // Retain the process group for cleanup even if its leader exited unexpectedly.
+    assertRunning();
+    if (state.error) throw state.error;
+    return code;
+  }
+  async function healthy(url, backend = false) {
+    try {
+      const response = await request(url, { signal: AbortSignal.timeout(1000) });
+      return response.ok && (!backend || (await response.json()).status === 'ok');
+    } catch { return false; }
+  }
+  async function waitReady(state, url, backend = false) {
     const deadline = Date.now() + 120_000;
-    let ready = false;
-    while (!interrupted && !backend.done && Date.now() < deadline) {
-      if (await healthy()) { ready = true; break; }
+    while (Date.now() < deadline) {
+      assertRunning();
+      if (state.done) throw new Error(`[E2E] Service exited before ready: ${state.error?.message ?? url}`);
+      if (await healthy(url, backend)) return;
       await delay(500);
     }
-    if (interrupted) return;
-    if (!ready || backend.done) {
-      console.log(`[E2E] SKIPPED: backend unavailable (${backend.error?.message ?? (backend.done ? 'make serve exited' : 'startup timed out after 120 seconds')}).`);
-      return;
-    }
-  } else {
-    console.log('[E2E] Reusing healthy backend on port 8080.');
+    throw new Error(`[E2E] Service startup timed out after 120 seconds: ${url}`);
   }
-  if (interrupted) return;
-  const runner = start(process.execPath, [
-    fileURLToPath(new URL('../node_modules/@playwright/test/cli.js', import.meta.url)),
-    'test', ...process.argv.slice(2),
-  ], root);
-  const code = await runner.completion;
-  if (!interrupted) {
-    if (runner.error) console.error('[E2E] Could not start Playwright:', runner.error);
-    else if (code !== 0) console.error(`[E2E] Playwright exited with code ${code}. Check the Next.js/Playwright output above for startup or test errors.`);
-    process.exitCode = code || process.exitCode;
-  }
+  return {
+    get interrupted() { return interrupted; },
+    log: message => console.log(message),
+    async probe(headed) {
+      console.log(`[E2E] Checking Chromium (${headed ? 'headed' : 'headless'}).`);
+      const code = await execute(process.execPath, [local('./check-e2e-browser.mjs'), ...(headed ? ['--headed'] : [])]);
+      if (code !== 0) throw new Error('[E2E] Browser preflight failed; services and tests were not started.');
+    },
+    async frontend() {
+      // Never silently test against a frontend with unknown API configuration.
+      if (await healthy('http://127.0.0.1:3100')) throw new Error('[E2E] Port 3100 is already serving HTTP. Stop that frontend before running E2E.');
+      console.log('[E2E] Starting frontend on port 3100.');
+      const state = start(process.execPath, [local('../node_modules/next/dist/bin/next'), 'dev', '--turbopack', '--hostname', '127.0.0.1', '--port', '3100'], root, {
+        ...process.env, NEXT_PUBLIC_API_HTTP_URL: 'http://127.0.0.1:8080', NEXT_PUBLIC_API_WS_URL: 'ws://127.0.0.1:8080', ADMIN_KEY: '',
+      });
+      await waitReady(state, 'http://127.0.0.1:3100');
+    },
+    async backend() {
+      assertRunning();
+      if (await healthy('http://127.0.0.1:8080/health', true)) {
+        console.log('[E2E] Reusing healthy backend on port 8080.');
+        return;
+      }
+      console.log('[E2E] Starting backend: cd ../dtm && make serve');
+      await waitReady(start('make', ['serve'], backendDirectory), 'http://127.0.0.1:8080/health', true);
+    },
+    async test(suite, args) {
+      console.log(`[E2E] Running ${suite}.`);
+      return execute(process.execPath, [local('../node_modules/@playwright/test/cli.js'), 'test', ...args, `--project=${suite}`], {
+        ...process.env, E2E_HEADED: isHeaded(args, process.env) ? '1' : '0', PLAYWRIGHT_HTML_OUTPUT_DIR: `playwright-report/${suite}`,
+      });
+    },
+    async cleanup() {
+      signalChildren('SIGTERM');
+      if (children.size) { await delay(1000); signalChildren('SIGKILL'); }
+      for (const [signal, handler] of handlers) process.removeListener(signal, handler);
+    },
+  };
 }
 
-try { await main(); }
-catch (error) {
-  console.error('[E2E] Runner failed:', error);
-  if (!interrupted) process.exitCode = 1;
-}
-finally {
-  if (process.exitCode !== 0 && !interrupted) {
-    console.error('\n[E2E] Tip: If tests failed due to environment or browser issues, run `yarn test:e2e:check` to diagnose.');
-  }
-  clearTimeout(forceStopTimer);
-  signalChildren('SIGTERM');
-  if (children.length) {
-    await delay(1000);
-    signalChildren('SIGKILL');
-  }
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const runtime = createRuntime();
+  const code = await runWorkflow(optionsFor(process.argv.slice(2)), runtime);
+  process.exitCode = runtime.interrupted || code;
+  if (code && !runtime.interrupted) console.error('[E2E] Diagnose environment problems with yarn test:e2e:check.');
 }

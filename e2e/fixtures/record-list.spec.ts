@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 import { test, expect, type Page } from '@playwright/test';
-import { RecordCategory, type Record } from '../src/app/lib/tripApi/types';
+import { RecordCategory, type Record } from '../../src/app/lib/tripApi/types';
 
 test.use({ locale: 'en-US', timezoneId: 'Asia/Taipei' });
 
@@ -77,6 +77,7 @@ for (const viewport of [{ width: 320, height: 844 }, { width: 390, height: 844 }
 		await page.setViewportSize(viewport);
 		await mockTrip(page, makeRecords(200));
 		await expect(page.locator('[data-record-id="r2"]')).toBeAttached();
+		await page.evaluate(() => document.fonts.ready.then(() => undefined));
 		await expect.poll(async () => (await measurements(page)).overlaps).toBe(0);
 		const data = await measurements(page);
 		expect(data.documentOverflow).toBe(0);
@@ -170,6 +171,7 @@ test('history, large list, resize, date grouping and refreshed data', async ({ p
 	const scroller = page.getByRole('region', { name: '帳目列表' });
 	for (const fraction of [0.7, 0.2, 0.9, 1]) {
 		await scroller.evaluate((el, fraction) => { el.scrollTop = el.scrollHeight * fraction; }, fraction);
+		await page.evaluate(() => document.fonts.ready.then(() => undefined));
 		await expect.poll(async () => (await measurements(page)).overlaps).toBe(0);
 	}
 	await expect(page.locator('[data-record-id="r999"]')).toBeVisible();

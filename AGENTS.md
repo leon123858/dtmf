@@ -33,13 +33,18 @@ Follow ESLint (`next/core-web-vitals` and `next/typescript`) and keep TypeScript
 
 ## Testing Guidelines
 
-Run `yarn lint`, `yarn typecheck`, `yarn build`, and `yarn test:e2e` before submitting changes. Install Chromium once with `yarn playwright install chromium`. Use `yarn test:e2e --headed` to watch the browser.
+Run `yarn lint`, `yarn typecheck`, `yarn build`, `yarn test:node`, and `yarn test:e2e` before submitting changes. Install Chromium once with `yarn playwright install chromium`.
 
-The E2E runner first launches and closes Chromium with a 30-second launch timeout. Browser preflight failures print the original error and repair guidance, exit nonzero, and do not start services. It respects headed/Inspector mode and does not install dependencies automatically.
+- `yarn test:e2e`: run all E2E specs once, headlessly, with one worker and no retries.
+- `yarn test:e2e:headed`: run the same specs in a visible browser with a 200ms delay between browser operations, without Inspector. `yarn test:e2e --headed` also works.
+- `yarn test:e2e:check`: verify Playwright/Chromium, frontend startup, and backend health without running specs. Add `--headed` to verify the display too.
+- `yarn test:node`: run the browser preflight and runner orchestration unit tests with Node's built-in test runner.
 
-Run `yarn test:e2e:records` for deterministic record-list, mobile navigation, and record-form browser tests without a backend. This runs the browser preflight and uses intercepted GraphQL fixtures. Use `yarn test:e2e:records --headed` to watch. Screenshots and JSON layout measurements are attached to the Playwright report and stored under `test-results/record-list/`.
+`scripts/test-e2e.mjs` owns preflight, service startup, sequential suite execution, result aggregation, and cleanup. Add intercepted GraphQL specs under `e2e/fixtures/` and real-backend specs under `e2e/integration/`; Playwright discovers them automatically without package.json edits. Fixtures run first, then integration. A failed suite does not prevent the other runnable suite from executing. Reports are stored in `playwright-report/<suite>/`; screenshots, traces, and attached JSON measurements in `test-results/<suite>/`.
 
-After preflight, the runner reuses a healthy backend on port 8080 or runs `make serve` in `../dtm`. Backend startup failure or a 120-second startup timeout prints SKIPPED and exits successfully; frontend/browser/assertion failures remain failures. Tests create unique trips and do not clear existing backend data.
+Browser preflight launches and closes Chromium with a 30-second timeout before starting services. Failures preserve the original error and repair guidance, return nonzero, and never install dependencies automatically. Headed/Inspector mode is respected; only preflight disables Inspector's unlimited timeout.
+
+The runner starts its own frontend on port 3100 and rejects an already-running frontend. It reuses a healthy backend on port 8080 or runs `make serve` in `../dtm`, with a 120-second readiness timeout. Backend failure returns nonzero, even when fixture tests pass. Tests create unique trips and do not clear existing backend data. Exit and interruption clean up only services started by the runner; a reused backend remains running.
 
 When adding a test framework, add the command to `package.json` and update this guide with the exact invocation.
 
