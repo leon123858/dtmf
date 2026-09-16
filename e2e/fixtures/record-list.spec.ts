@@ -664,17 +664,30 @@ test('unfiltered hidden list restores nearby records through resize, removal and
  const records = makeRecords(1000);
  const state = await mockTrip(page, records);
  const scroller = page.getByRole('region', { name: '帳目列表' });
+ // Finish the initial position restore before requesting a distant virtual range.
+ await expect(page.locator('[data-record-id="r0"]')).toBeVisible();
  await scroller.evaluate(el => { el.scrollTop = 50000; });
- await page.clock.runFor(300);
- // Use an unobscured row boundary so a smaller replacement row can retain the anchor.
- await scroller.evaluate(el => {
-  const top = el.getBoundingClientRect().top;
-  const first = [...el.querySelectorAll<HTMLElement>('[data-row-id]')].find(row => row.getBoundingClientRect().bottom > top)!;
-  el.scrollTop += first.getBoundingClientRect().top - top;
- });
- await page.clock.runFor(300);
+ // Clock advancement alone does not guarantee native scroll/resize delivery or a
+ // React commit. Wait for a visible row and align its boundary before capturing it.
+ await expect.poll(async () => {
+  await page.clock.runFor(100);
+  return scroller.evaluate(el => {
+   const bounds = el.getBoundingClientRect();
+   const first = [...el.querySelectorAll<HTMLElement>('[data-row-id]')].find(row => {
+    const rect = row.getBoundingClientRect();
+    return rect.bottom > bounds.top && rect.top < bounds.bottom && getComputedStyle(row).visibility === 'visible';
+   });
+   if (!first || el.scrollTop < 40000) return false;
+   const offset = first.getBoundingClientRect().top - bounds.top;
+   if (Math.abs(offset) <= 1) return true;
+   el.scrollTop += offset;
+   return false;
+  });
+ }, { message: 'distant virtual row is rendered and aligned with the list viewport' }).toBe(true);
  const position = await listPosition(page);
  const index = records.findIndex(record => record.id === position.id);
+ expect(index).toBeGreaterThan(0);
+ expect(index).toBeLessThan(records.length - 1);
  await page.getByRole('button', { name: '成員', exact: true }).click();
  await page.setViewportSize({ width: 320, height: 480 });
  state.records = records.filter(record => record.id !== position.id);
