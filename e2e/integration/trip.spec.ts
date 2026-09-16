@@ -38,9 +38,9 @@ test('旅程主要功能：成員、帳目、分帳、還款、分享與歷史',
   async function expectDebt(amount: string) {
     await page.getByRole('button', { name: '分帳', exact: true }).click();
     await expect(page.getByRole('button', { name: 'payback', exact: true })).toHaveCount(1);
-    const payer = page.getByText('Bob', { exact: true }).locator('..');
+    const payer = page.getByText('Bob', { exact: true }).filter({ visible: true }).locator('..');
     await expect(payer).toContainText(`$${amount}`);
-    const receiver = page.getByText('Alice', { exact: true }).locator('..');
+    const receiver = page.getByText('Alice', { exact: true }).filter({ visible: true }).locator('..');
     await expect(receiver).toContainText('收到');
     await expect(receiver).toContainText(`$${amount}`);
   }

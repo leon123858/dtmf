@@ -73,8 +73,8 @@ function TripContent({ tripId }: { tripId: string }) {
 		}
 	}, [tripData, tripId]);
 
- const focusContent = () => requestAnimationFrame(() => {
-    mainRef.current?.scrollTo(0, 0);
+ const focusContent = (tab: TripTab) => requestAnimationFrame(() => {
+    if (tab !== 'records') mainRef.current?.scrollTo(0, 0);
     mainRef.current?.focus({ preventScroll: true });
  });
  const selectTab = (tab: TripTab) => {
@@ -83,7 +83,7 @@ function TripContent({ tripId }: { tripId: string }) {
         sourceTab.current = 'records';
     }
     setActiveTab(tab);
-    focusContent();
+    focusContent(tab);
  };
  const startEdit = (record: EditableRecord) => {
     sourceTab.current = activeTab;
@@ -93,7 +93,7 @@ function TripContent({ tripId }: { tripId: string }) {
     setHasDraft(true);
     setActiveTab('entry');
     setPendingRecord(null);
-    focusContent();
+    focusContent('entry');
  };
  const openRecordForm = (record: EditableRecord) => {
     if (busy.current) return;
@@ -107,7 +107,7 @@ function TripContent({ tripId }: { tripId: string }) {
     dirty.current = false;
     busy.current = false;
     setNotice(success ? '帳目已儲存' : '已取消記帳');
-    focusContent();
+    focusContent(editingRecord ? sourceTab.current : 'records');
  };
 
 	if (!tripData && tripError) {
@@ -143,7 +143,9 @@ function TripContent({ tripId }: { tripId: string }) {
                     <span role='status' className='sr-only'>{notice}</span>
                     <main ref={mainRef} tabIndex={-1} aria-label='行程內容'
                         className={`min-h-0 flex-1 px-4 py-3 outline-none ${activeTab === 'records' ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'}`}>
-                        {activeTab === 'records' && <RecordList onEdit={openRecordForm} />}
+                        <div hidden={activeTab !== 'records'} className={activeTab === 'records' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
+                            <RecordList onEdit={openRecordForm} isActive={activeTab === 'records'} />
+                        </div>
                         {activeTab === 'share' && <MoneyShare onRepay={openRecordForm} />}
                         {activeTab === 'members' && <AddressList />}
                         {hasDraft && <div hidden={activeTab !== 'entry'}>
