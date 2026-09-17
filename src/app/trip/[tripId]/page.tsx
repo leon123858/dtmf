@@ -2,11 +2,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { SingleTripContext } from '@/app/context/SingleTripProvider';
+import { SingleTripProvider } from '@/app/context/SingleTripProvider';
 import { Record } from '@/app/lib/types';
 import { useGraphQLClient } from '@/app/lib/tripApi/client';
 
-import { TripSyncNotice } from '@/app/components/TripSyncNotice';
 import { Header } from '@/app/components/Header';
 import { TabBar, type TripTab } from '@/app/components/Tabbar';
 import { RecordList } from '@/app/components/RecordList';
@@ -19,14 +18,13 @@ import { SaveTripInStorage } from '@/app/lib/storage/trip';
 export default function TripPage() {
 	const params = useParams();
 	const tripId = params.tripId as string;
- return <TripContent key={tripId} tripId={tripId} />;
+ return <SingleTripProvider key={tripId} tripId={tripId}><TripContent tripId={tripId} /></SingleTripProvider>;
 }
 
 type EditableRecord = Record | Omit<Record, 'id' | 'time' | 'isValid'>;
 
 function TripContent({ tripId }: { tripId: string }) {
  const router = useRouter();
- const [showHistory, setShowHistory] = useState(false);
 
 	const {
 		queries: { useTrip },
@@ -36,6 +34,7 @@ function TripContent({ tripId }: { tripId: string }) {
 		data: tripData,
 		loading: tripLoading,
 		error: tripError,
+		refetch,
 	} = useTrip(tripId);
 
 	// 將旅程狀態存在本地，以便編輯
@@ -114,6 +113,7 @@ function TripContent({ tripId }: { tripId: string }) {
 		return (
 			<div className='bg-gray-900 text-white h-screen flex flex-col items-center justify-center'>
 				<p className='mb-4'>找不到旅程資料...</p>
+                <button className="mb-4 underline" onClick={() => { void refetch().catch(() => {}); }}>重試</button>
 				<button
 					onClick={() => router.push('/')}
 					className='bg-blue-500 text-white py-2 px-4 rounded-lg'
@@ -133,12 +133,14 @@ function TripContent({ tripId }: { tripId: string }) {
 	}
 
 	return (
-		<SingleTripContext.Provider value={{ tripId, showHistory, setShowHistory }}>
+		<>
             <div className='h-dvh bg-gray-100 font-sans' style={{ height: viewportHeight }}>
                 <div className='mx-auto flex h-full max-w-lg flex-col pt-[env(safe-area-inset-top)]'>
                     <div className='shrink-0 px-4'>
                         <Header />
-                        <TripSyncNotice tripId={tripId} />
+                        {tripError && tripData && <p role='alert' className='text-sm text-red-700'>
+                            更新失敗。<button disabled={tripLoading} className='underline' onClick={() => { void refetch().catch(() => {}); }}>重試</button>
+                        </p>}
                     </div>
                     <span role='status' className='sr-only'>{notice}</span>
                     <main ref={mainRef} tabIndex={-1} aria-label='行程內容'
@@ -162,6 +164,6 @@ function TripContent({ tripId }: { tripId: string }) {
                     onConfirm={() => { if (pendingRecord) startEdit(pendingRecord); }}
                     onCancel={() => setPendingRecord(null)} isDestructive />
             </div>
-        </SingleTripContext.Provider>
+        </>
     );
 }

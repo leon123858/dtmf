@@ -73,7 +73,6 @@ export function RecordList({ onEdit, isActive }: { onEdit: (record: Record) => v
 
 	return <div className='flex min-h-0 flex-1 flex-col gap-3'>
 		<RecordFilters filters={filters} onChange={setFilters} members={members} isActive={isActive} />
-		{error && <p role='alert' className='text-sm text-red-700'>更新失敗。<button className='underline' onClick={retry}>重試</button></p>}
 		{!records?.length && <p className='mt-12 text-center text-gray-600'>{showHistory ? '沒有歷史帳目' : '尚無帳目，到「記帳」分頁開始記帳'}</p>}
 		{!!records?.length && !rows.length && <div role='status' className='mt-12 text-center text-gray-600'>
 			<p>沒有符合條件的帳目</p>

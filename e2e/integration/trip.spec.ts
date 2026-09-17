@@ -37,6 +37,7 @@ test('旅程主要功能：成員、帳目、分帳、還款、分享與歷史',
 
   async function expectDebt(amount: string) {
     await page.getByRole('button', { name: '分帳', exact: true }).click();
+    await page.getByRole('button', { name: 'refresh money share' }).click();
     await expect(page.getByRole('button', { name: 'payback', exact: true })).toHaveCount(1);
     const payer = page.getByText('Bob', { exact: true }).filter({ visible: true }).locator('..');
     await expect(payer).toContainText(`$${amount}`);
@@ -77,6 +78,7 @@ test('旅程主要功能：成員、帳目、分帳、還款、分享與歷史',
     await expect(form.getByLabel('項目名稱', { exact: true })).toHaveValue(repayment);
     await form.getByRole('button', { name: '新增', exact: true }).click();
     await expect(form).toHaveCount(0);
+    await page.getByRole('button', { name: 'refresh money share' }).click();
     await expect(page.getByText('帳目計算中，或沒有需要分帳的項目。')).toBeVisible();
     await page.getByRole('button', { name: '帳目', exact: true }).click();
     await expect(page.getByText(repayment, { exact: true })).toBeVisible();

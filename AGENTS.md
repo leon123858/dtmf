@@ -38,7 +38,7 @@ Run `yarn lint`, `yarn typecheck`, `yarn build`, `yarn test:node`, and `yarn tes
 - `yarn test:e2e`: run all E2E specs once, headlessly, with one worker and no retries.
 - `yarn test:e2e:headed`: run the same specs in a visible browser with a 200ms delay between browser operations, without Inspector. `yarn test:e2e --headed` also works.
 - `yarn test:e2e:check`: verify Playwright/Chromium, frontend startup, and backend health without running specs. Add `--headed` to verify the display too.
-- `yarn test:node`: run the browser preflight and runner orchestration unit tests with Node's built-in test runner.
+- `yarn test:node`: run browser preflight, runner orchestration, trip action, and Apollo cache/synchronization tests with Node's built-in test runner.
 
 `scripts/test-e2e.mjs` owns preflight, service startup, sequential suite execution, result aggregation, and cleanup. Add intercepted GraphQL specs under `e2e/fixtures/` and real-backend specs under `e2e/integration/`; Playwright discovers them automatically without package.json edits. Fixtures run first, then integration. A failed suite does not prevent the other runnable suite from executing. Reports are stored in `playwright-report/<suite>/`; screenshots, traces, and attached JSON measurements in `test-results/<suite>/`.
 
@@ -47,6 +47,12 @@ Browser preflight launches and closes Chromium with a 30-second timeout before s
 The runner starts its own frontend on port 3100 and rejects an already-running frontend. It reuses a healthy backend on port 8080 or runs `make serve` in `../dtm`, with a 120-second readiness timeout. Backend failure returns nonzero, even when fixture tests pass. Tests create unique trips and do not clear existing backend data. Exit and interruption clean up only services started by the runner; a reused backend remains running.
 
 When adding a test framework, add the command to `package.json` and update this guide with the exact invocation.
+
+## Trip Query and Cache Rules
+
+`SingleTripProvider` owns trip loading and the single 20-second polling timer. Components read Apollo cache through the shared provider. Only page entry, polling, explicit refresh/retry, and history-mode changes may query a trip; ordinary tab changes and mutations must not.
+
+Successful mutations update both existing cache variants using the returned data. Record edits/deletions create versions: retire the edited/parent record and upsert the returned version, retaining history. Settlement amounts and trip validity remain server snapshots until the next query. Slow query results must replay mutations completed during the request before entering cache. Keep request-count and race-condition coverage in `e2e/fixtures/trip-cache.spec.ts` and `scripts/trip-cache.test.mjs`.
 
 ## Commit & Pull Request Guidelines
 

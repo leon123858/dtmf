@@ -15,34 +15,10 @@ export const MoneyShare: React.FC<MoneyShareProps> = ({ onRepay }) => {
 		queries: { useTrip },
 	} = useGraphQLClient();
 
-	const [isFetching, setIsFetching] = React.useState(false);
-
 	const context = useContext(SingleTripContext);
-	const { data: tripData, refetch } = useTrip(context?.tripId || '');
+	const { data: tripData, refetch, loading: isFetching } = useTrip(context?.tripId || '');
 
 	if (!context || !tripData) return null;
-
-	if (!tripData.isValid) {
-		return (
-			<div className='text-center text-red-500 mt-12'>
-				注意: 包含待校正的帳目，請先校正後再進行結算。
-			</div>
-		);
-	}
-
-	if (tripData.moneyShare.length === 0) {
-		return (
-			<div className='text-center text-gray-500 mt-12'>
-				帳目計算中，或沒有需要分帳的項目。
-			</div>
-		);
-	}
-
-	const waitSecondFunction = (seconds: number) => {
-		return new Promise((resolve) => {
-			setTimeout(resolve, seconds * 1000);
-		});
-	};
 
 	const handleRepayClick = (
 		payerAddress: Address,
@@ -67,22 +43,7 @@ export const MoneyShare: React.FC<MoneyShareProps> = ({ onRepay }) => {
 			<h2 className='text-xl font-bold mb-4 text-gray-800'>
 				結算{' '}
 				<button
-					onClick={() => {
-						if (isFetching) return;
-						setIsFetching(true);
-						// refetch the trip data
-						refetch()
-							.then(() => {
-								// wait for 1 second to ensure UI updates
-								waitSecondFunction(1).then(() => {
-									setIsFetching(false);
-								});
-							})
-							.catch((error) => {
-								console.error('Error refetching trip data:', error);
-								setIsFetching(false);
-							});
-					}}
+					onClick={() => { void refetch().catch(() => {}); }}
 					disabled={isFetching}
 					className='rounded hover:bg-gray-200 transition-colors disabled:opacity-50 text-blue-500'
 					aria-label='refresh money share'
@@ -94,7 +55,9 @@ export const MoneyShare: React.FC<MoneyShareProps> = ({ onRepay }) => {
 					)}
 				</button>
 			</h2>
-			<div className='space-y-4'>
+			{!tripData.isValid ? <p className='text-center text-red-500'>注意: 包含待校正的帳目，請先校正後再進行結算。</p>
+			: tripData.moneyShare.length === 0 ? <p className='text-center text-gray-500'>帳目計算中，或沒有需要分帳的項目。</p>
+			: <div className='space-y-4'>
 				{tripData.moneyShare.map((tx, index) => (
 					<div key={index} className='p-3 bg-gray-50 rounded-lg'>
 						{/* Input 部分 */}
@@ -142,7 +105,7 @@ export const MoneyShare: React.FC<MoneyShareProps> = ({ onRepay }) => {
 						</div>
 					</div>
 				))}
-			</div>
+			</div>}
 		</div>
 	);
 };

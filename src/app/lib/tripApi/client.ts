@@ -1,18 +1,15 @@
-import { useMemo, useState } from 'react';
-import { normalizeTrip } from './recordInput';
-import { refreshTrip } from './sync';
+import { useContext, useMemo } from 'react';
+import { SingleTripContext, TripState } from '@/app/context/SingleTripProvider';
+import { updateTripCache, TripChange } from './cache';
 import {
-	useQuery,
- useApolloClient,
- OperationVariables,
- DocumentNode,
+	useApolloClient,
+	OperationVariables,
+	DocumentNode,
 	useMutation,
 	useSubscription,
-	ApolloQueryResult,
 	MutationTuple,
 	SubscriptionResult,
 } from '@apollo/client';
-import { GET_TRIP } from './query';
 import {
 	CREATE_TRIP,
 	UPDATE_TRIP,
@@ -31,9 +28,6 @@ import {
 } from './subscription';
 import {
 	ID,
-	Trip,
-	TripQueryVariables,
-	TripQueryData,
 	CreateTripMutationVariables,
 	CreateTripMutationData,
 	UpdateTripMutationVariables,
@@ -63,14 +57,7 @@ import {
 // Define an object type containing all GraphQL operations
 interface TripGraphQLClient {
 	queries: {
-		useTrip: (tripId: ID, haveHistory?: boolean) => {
-			data: Trip | null | undefined;
-			loading: boolean;
-			error: ApolloQueryResult<TripQueryData>['error'];
-			refetch: (
-				variables?: Partial<TripQueryVariables> | undefined
-			) => Promise<ApolloQueryResult<TripQueryData>>;
-		};
+		useTrip: (tripId: ID, haveHistory?: boolean) => TripState;
 	};
 	mutations: {
 		useCreateTrip: () => MutationTuple<
@@ -126,18 +113,13 @@ export const useGraphQLClient = (): TripGraphQLClient => {
 	return {
 		queries: {
 			useTrip: (tripId: ID, haveHistory: boolean = false) => {
-				const { loading, error, data, refetch } = useQuery<
-					TripQueryData,
-					TripQueryVariables
-				>(GET_TRIP, {
-					variables: { tripId, haveHistory },
-					fetchPolicy: 'cache-first',
- skip: !tripId,
- notifyOnNetworkStatusChange: true,
-					pollInterval: 20000, // Refetch data every 20 seconds
-				});
-				const trip = useMemo(() => data?.trip ? normalizeTrip(data.trip) : (data?.trip === null ? null : undefined), [data]);
- return { data: trip, loading, error, refetch };
+				const context = useContext(SingleTripContext);
+				const data = context?.trip.data;
+				const trip = useMemo(() => !data || haveHistory ? data : {
+					...data, records: data.records.filter(record => record.isActive && !record.isDeleted),
+				}, [data, haveHistory]);
+				if (!context || context.tripId !== tripId) throw new Error('useTrip requires the matching SingleTripProvider');
+				return { ...context.trip, data: trip };
 			},
 		},
 		mutations: {
@@ -147,13 +129,13 @@ export const useGraphQLClient = (): TripGraphQLClient => {
 				),
 			useUpdateTrip: () =>
 				useTripMutation<UpdateTripMutationData, UpdateTripMutationVariables>(
-					UPDATE_TRIP
+					UPDATE_TRIP, data => ({ kind: 'trip', value: data.updateTrip })
 				),
-			useCreateRecord: (tripId: ID) => useTripMutation<CreateRecordMutationData, CreateRecordMutationVariables>(CREATE_RECORD, tripId),
-			useUpdateRecord: (tripId: ID) => useTripMutation<UpdateRecordMutationData, UpdateRecordMutationVariables>(UPDATE_RECORD, tripId),
-			useCreateAddress: (tripId: ID) => useTripMutation<CreateAddressMutationData, CreateAddressMutationVariables>(CREATE_ADDRESS, tripId),
-			useUpdateAddress: (tripId: ID) => useTripMutation<UpdateAddressMutationData, UpdateAddressMutationVariables>(UPDATE_ADDRESS, tripId),
-			useDeleteAddress: (tripId: ID) => useTripMutation<DeleteAddressMutationData, DeleteAddressMutationVariables>(DELETE_ADDRESS, tripId),
+			useCreateRecord: (tripId: ID) => useTripMutation<CreateRecordMutationData, CreateRecordMutationVariables>(CREATE_RECORD, data => ({ kind: 'record', value: data.createRecord }), tripId),
+			useUpdateRecord: (tripId: ID) => useTripMutation<UpdateRecordMutationData, UpdateRecordMutationVariables>(UPDATE_RECORD, (data, variables) => ({ kind: 'record', value: data.updateRecord, editedRecordId: variables?.recordId }), tripId),
+			useCreateAddress: (tripId: ID) => useTripMutation<CreateAddressMutationData, CreateAddressMutationVariables>(CREATE_ADDRESS, data => ({ kind: 'createAddress', value: data.createAddress }), tripId),
+			useUpdateAddress: (tripId: ID) => useTripMutation<UpdateAddressMutationData, UpdateAddressMutationVariables>(UPDATE_ADDRESS, data => ({ kind: 'updateAddress', value: data.updateAddress }), tripId),
+			useDeleteAddress: (tripId: ID) => useTripMutation<DeleteAddressMutationData, DeleteAddressMutationVariables>(DELETE_ADDRESS, data => ({ kind: 'deleteAddress', value: data.deleteAddress }), tripId),
 		},
 		subscriptions: {
 			useSubRecordCreate: (tripId: ID) =>
@@ -195,22 +177,19 @@ export const useGraphQLClient = (): TripGraphQLClient => {
 	};
 };
 
-function useTripMutation<T, V extends OperationVariables>(document: DocumentNode, tripId?: string): MutationTuple<T, V> {
- const client = useApolloClient();
- const [mutate, result] = useMutation<T, V>(document, { fetchPolicy: 'no-cache' });
- const [pendingCount, setPendingCount] = useState(0);
- const execute: MutationTuple<T, V>[0] = async options => {
-  setPendingCount(count => count + 1);
-  try {
-   const response = await mutate(options);
-   if (!response.errors?.length && response.data) {
-    const id = tripId ?? options?.variables?.tripId;
-    if (typeof id === 'string') await refreshTrip(client, id);
-   }
-   return response;
-  } finally {
-   setPendingCount(count => count - 1);
-  }
- };
- return [execute, { ...result, loading: result.loading || pendingCount > 0 }];
+function useTripMutation<T, V extends OperationVariables>(
+	document: DocumentNode, change: (data: T, variables?: V) => TripChange, tripId?: string
+): MutationTuple<T, V> {
+	const client = useApolloClient();
+	// Commit only a complete successful result, through the shared cache updater.
+	const [mutate, result] = useMutation<T, V>(document, { fetchPolicy: 'no-cache' });
+	const execute: MutationTuple<T, V>[0] = async options => {
+		const response = await mutate(options);
+		if (!response.errors?.length && response.data) {
+			const id = tripId ?? options?.variables?.tripId;
+			if (typeof id === 'string') updateTripCache(client.cache, id, change(response.data, options?.variables));
+		}
+		return response;
+	};
+	return [execute, result];
 }

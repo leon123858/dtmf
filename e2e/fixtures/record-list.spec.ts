@@ -484,6 +484,8 @@ test('updates preserve the reading anchor and fall back to its next surviving re
  const scroller = page.getByRole('region', { name: '帳目列表' });
  await scroller.evaluate(el => { el.scrollTop = 50000; });
  await page.clock.runFor(300);
+ // Wait for virtual rows to reach the scroll position before recording the anchor.
+ await expect.poll(async () => (await listPosition(page)).id).toBeDefined();
  const position = await listPosition(page);
  await page.getByRole('button', { name: '成員', exact: true }).click();
  state.records = [{ ...records[0], id: 'inserted', time: String(Number(records[0].time) - 86400000) }, ...records];
