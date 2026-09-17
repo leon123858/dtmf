@@ -1,37 +1,30 @@
-'use server'; // 標記為 Server Action 檔案
+'use server';
 
-import { redirect } from 'next/navigation';
+import { ApolloError } from '@apollo/client';
 import { createTripHttp } from '../tripApi/http';
-import { CreateTripMutationData, NewTripInput } from '../tripApi/types';
 
 const ERROR_MESSAGE = '創建新旅程失敗，請稍後再試。';
 
-export async function createTripAction(formData: FormData) {
-	// 從表單數據中獲取 tripName
+type CreateTripResult = { error: string; tripId?: never } | { tripId: string; error?: never };
+
+export async function createTripAction(formData: FormData): Promise<CreateTripResult> {
 	const tripName = formData.get('tripName');
-
-	if (!tripName || typeof tripName !== 'string' || tripName.trim() === '') {
-		throw new Error('旅程名稱不能為空。');
+	if (typeof tripName !== 'string' || tripName.trim() === '') {
+		return { error: '旅程名稱不能為空。' };
 	}
-
-	let ret: CreateTripMutationData;
 
 	try {
-		ret = await createTripHttp({
-			name: tripName.trim(),
-		} as NewTripInput);
-
-		if (!ret || !ret.createTrip || !ret.createTrip.id) {
-			throw new Error('創建新旅程失敗，請稍後再試。');
+		const result = await createTripHttp({ name: tripName.trim() });
+		if (!result?.createTrip?.id) {
+			console.error('創建新旅程時缺少旅程 ID');
+			return { error: ERROR_MESSAGE };
 		}
+		return { tripId: result.createTrip.id };
 	} catch (error) {
 		console.error('創建新旅程時出錯:', error);
-		if (error && error instanceof Error) {
-			redirect(`/err?errMsg=${encodeURIComponent(error.message)}`);
-		} else {
-			redirect(`/err?errMsg=${encodeURIComponent(ERROR_MESSAGE)}`);
-		}
+		const message = error instanceof ApolloError && !error.networkError
+			? error.graphQLErrors.map(item => item.message).filter(Boolean).join('\n')
+			: '';
+		return { error: message || ERROR_MESSAGE };
 	}
-
-	redirect(`/trip/${ret.createTrip.id}`);
 }

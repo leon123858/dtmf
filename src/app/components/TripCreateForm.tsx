@@ -1,28 +1,39 @@
 'use client';
 
 import React from 'react';
-import { useFormStatus } from 'react-dom';
+import { useRouter } from 'next/navigation';
 import { createTripAction } from '@/app/lib/staticActions/tripActions';
 
 export const TripCreationForm: React.FC = () => {
-	const { pending } = useFormStatus();
-	const [isClicked, setIsClicked] = React.useState(false);
+	const router = useRouter();
+	const [pending, setPending] = React.useState(false);
+	const submitting = React.useRef(false);
+
+	async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		if (submitting.current) return;
+		const formData = new FormData(event.currentTarget);
+		submitting.current = true;
+		setPending(true);
+		try {
+			const result = await createTripAction(formData);
+			if (result.error !== undefined) {
+				window.alert(result.error);
+			} else {
+				router.push(`/trip/${result.tripId}`);
+			}
+		} catch {
+			window.alert('創建新旅程失敗，請稍後再試。');
+		} finally {
+			submitting.current = false;
+			setPending(false);
+		}
+	}
 
 	return (
 		<form
-			action={createTripAction}
+			onSubmit={handleSubmit}
 			className='bg-white p-8 rounded-xl shadow-lg'
-			onInvalid={(event: React.FormEvent<HTMLFormElement>) => {
-				event.preventDefault();
-				setIsClicked(false);
-				const firstInvalidElement = event.currentTarget.querySelector(
-					'[required]'
-				) as HTMLInputElement;
-				if (firstInvalidElement) {
-					firstInvalidElement.focus();
-				}
-				firstInvalidElement?.reportValidity();
-			}}
 		>
 			<h2 className='text-2xl font-semibold text-gray-700 mb-6'>
 				建立一個新旅程
@@ -47,11 +58,6 @@ export const TripCreationForm: React.FC = () => {
 					}
 				`}
 				disabled={pending}
-				onClick={() => {
-					if (!pending) {
-						setIsClicked(true);
-					}
-				}}
 			>
 				{pending && (
 					<svg
@@ -75,7 +81,7 @@ export const TripCreationForm: React.FC = () => {
 						></path>
 					</svg>
 				)}
-				<span>{isClicked ? '建立中...' : '開始分帳'}</span>
+				<span>{pending ? '建立中...' : '開始分帳'}</span>
 			</button>
 		</form>
 	);
