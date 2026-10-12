@@ -2,13 +2,15 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 import type { TripPayload, RecordPayload, NewRecordInput } from '../../src/app/lib/tripApi/types';
 import { RecordCategory } from '../../src/app/lib/tripApi/types';
 
-const alice = { __typename: 'Address', id: 'alice', name: 'Alice' };
-const bob = { __typename: 'Address', id: 'bob', name: 'Bob' };
+const alice = { __typename: 'Address', id: 'alice', name: 'Alice', statistics: { totalExpense: 50, totalPrepaid: 100, activeRecordCount: 1 } };
+const bob = { __typename: 'Address', id: 'bob', name: 'Bob', statistics: { totalExpense: 50, totalPrepaid: 0, activeRecordCount: 1 } };
 const initialRecord = {
   __typename: 'Record', id: 'r1', name: 'Lunch', amount: 100, prePayAddress: alice,
   shouldPayAddress: [alice, bob], extendPayMsg: [50, 50], category: RecordCategory.NORMAL,
   time: '1789056000000', isValid: true, isDeleted: false, isActive: true, parentRecordId: null,
 };
+
+const snapshot = ({ id, name }: { id: string; name: string }) => ({ __typename: 'AddressSnapshot', id, name });
 
 async function fixture(page: Page) {
   await page.clock.install();
@@ -45,20 +47,20 @@ async function fixture(page: Page) {
         shouldPayAddress: state.trip.addresses.filter(address => input.shouldPayAddressIds.includes(address.id)),
       };
       state.trip.records = [...state.trip.records.map(record => record.id === parent?.id ? { ...record, isActive: false } : record), record];
-      value = record;
+      value = { ...record, __typename: 'RecordSnapshot', prePayAddress: snapshot(record.prePayAddress), shouldPayAddress: record.shouldPayAddress.map(snapshot) };
       field = operationName === 'CreateRecord' ? 'createRecord' : 'updateRecord';
     } else if (operationName === 'CreateAddress') {
-      const address = { __typename: 'Address', id: 'guest', name: variables.input.name };
+      const address = { __typename: 'Address', id: 'guest', name: variables.input.name, statistics: null };
       state.trip.addresses.push(address);
-      value = address;
+      value = snapshot(address);
       field = 'createAddress';
     } else if (operationName === 'UpdateAddress') {
       const updated = { __typename: 'Address', id: variables.addressId, name: variables.input.name };
-      state.trip.addresses = state.trip.addresses.map(address => address.id === updated.id ? updated : address);
-      value = updated;
+      state.trip.addresses = state.trip.addresses.map(address => address.id === updated.id ? { ...address, ...updated } : address);
+      value = snapshot(updated);
       field = 'updateAddress';
     } else if (operationName === 'DeleteAddress') {
-      value = state.trip.addresses.find(address => address.id === variables.addressId)!;
+      value = snapshot(state.trip.addresses.find(address => address.id === variables.addressId)!);
       state.trip.addresses = state.trip.addresses.filter(address => address.id !== variables.addressId);
       field = 'deleteAddress';
     } else throw new Error(`Unexpected operation: ${operationName}`);
@@ -238,3 +240,36 @@ test('rapid history toggles keep the newest request loading when an old response
   await expect(page.getByRole('heading', { name: 'Fresh after toggling', exact: true })).toBeVisible();
   expect(state.queries).toEqual([false, false, true, false]);
 });
+
+for (const mobile of [false, true]) {
+  test(`statistics view uses server snapshots without extra queries (${mobile ? 'mobile' : 'desktop'})`, async ({ page }) => {
+    await page.setViewportSize({ width: mobile ? 375 : 1280, height: 900 });
+    const state = await fixture(page);
+    await page.getByRole('button', { name: '分帳', exact: true }).click();
+    await expect(page.getByRole('button', { name: '結算', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('button', { name: '成員統計', exact: true }).click();
+    const panel = page.getByRole('region', { name: '成員統計資料' });
+    const member = (name: string) => mobile ? panel.getByRole('article').filter({ has: page.getByRole('heading', { name, exact: true }) }) : panel.getByRole('row').filter({ has: page.getByRole('rowheader', { name, exact: true }) });
+    await expect(member('Alice')).toContainText('$100.00');
+    await expect(member('Bob')).toContainText('$0.00');
+    expect(state.queries).toEqual([false]);
+    state.trip.addresses = [{ ...alice, statistics: { totalExpense: 1234.5, totalPrepaid: 0, activeRecordCount: 0 } }, { ...bob, statistics: null }];
+    state.trip.isValid = false;
+    await page.clock.fastForward(20_000);
+    await expect(member('Alice')).toContainText('$1,234.50');
+    await expect(member('Bob')).toContainText('—');
+    await expect(panel.getByRole('status')).toContainText('已略過無效帳目');
+    expect(state.queries).toEqual([false, false]);
+    await expect(page.getByRole('button', { name: '成員統計', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`statistics-${mobile ? 'mobile' : 'desktop'}.png`), fullPage: true });
+    state.trip.addresses = [];
+    await page.getByRole('button', { name: 'refresh money share' }).click();
+    await expect(panel.getByText('尚無成員')).toBeVisible();
+    expect(state.queries.length).toBe(3);
+    await page.getByRole('button', { name: '成員', exact: true }).click();
+    await page.getByRole('button', { name: '分帳', exact: true }).click();
+    await expect(page.getByRole('button', { name: '結算', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    expect(state.queries.length).toBe(3);
+  });
+}

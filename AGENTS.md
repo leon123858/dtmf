@@ -52,7 +52,7 @@ When adding a test framework, add the command to `package.json` and update this 
 
 `SingleTripProvider` owns trip loading and the single 20-second polling timer. Components read Apollo cache through the shared provider. Only page entry, polling, explicit refresh/retry, and history-mode changes may query a trip; ordinary tab changes and mutations must not.
 
-Successful mutations update both existing cache variants using the returned data. Record edits/deletions create versions: retire the edited/parent record and upsert the returned version, retaining history. Settlement amounts and trip validity remain server snapshots until the next query. Slow query results must replay mutations completed during the request before entering cache. Keep request-count and race-condition coverage in `e2e/fixtures/trip-cache.spec.ts` and `scripts/trip-cache.test.mjs`.
+Successful mutations update both existing cache variants using the returned data. Record edits/deletions create versions: retire the edited/parent record and upsert the returned version, retaining history. Settlement amounts, member statistics, and trip validity remain server snapshots until the next query. Snapshot mutation payloads must be converted to query typenames before entering the trip cache; member renames preserve statistics and new members use null statistics until queried. The settlement/statistics view switch is local UI state and must not query a trip. Slow query results must replay mutations completed during the request before entering cache. Keep request-count and race-condition coverage in `e2e/fixtures/trip-cache.spec.ts` and `scripts/trip-cache.test.mjs`.
 
 ## Commit & Pull Request Guidelines
 

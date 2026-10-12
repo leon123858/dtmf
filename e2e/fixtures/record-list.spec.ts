@@ -43,7 +43,7 @@ async function mockTrip(page: Page, initial: Record[], tripName = 'Layout probe'
 		}
 		if (state.failQuery) return route.fulfill({ status: 503, json: { errors: [{ message: 'Offline' }] } });
 		return route.fulfill({ json: { data: { trip: {
-			id: 'layout-probe', name: tripName, addresses, moneyShare: [], isValid: true,
+			id: 'layout-probe', name: tripName, addresses: addresses.map(address => ({ ...address, statistics: null })), moneyShare: [], isValid: true,
 			records: body.variables.haveHistory ? state.records : state.records.filter(record => record.isActive && !record.isDeleted),
 		} } } });
 	});

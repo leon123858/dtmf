@@ -23,7 +23,7 @@ export const GET_TRIP = gql`
 				input { amount address { id name } }
 				output { amount address { id name } }
 			}
-			addresses { id name }
+			addresses { id name statistics { totalExpense totalPrepaid activeRecordCount } }
 			isValid
 		}
 	}

@@ -1,6 +1,6 @@
 import { ApolloCache, InMemoryCache, TypePolicies } from '@apollo/client';
 import { GET_TRIP } from './query';
-import type { Address, RecordPayload, TripPayload, TripQueryData, UpdateTripMutationData } from './types';
+import type { Address, AddressSnapshot, RecordSnapshot, TripPayload, TripQueryData, UpdateTripMutationData } from './types';
 
 export const tripTypePolicies: TypePolicies = {
 	Query: { fields: { trip: { keyArgs: ['tripId', 'haveHistory'], merge: false } } },
@@ -12,8 +12,8 @@ export function createTripCache() { return new InMemoryCache({ typePolicies: tri
 
 export type TripChange =
 	| { kind: 'trip'; value: UpdateTripMutationData['updateTrip'] }
-	| { kind: 'record'; value: RecordPayload; editedRecordId?: string }
-	| { kind: 'createAddress' | 'updateAddress' | 'deleteAddress'; value: Address };
+	| { kind: 'record'; value: RecordSnapshot; editedRecordId?: string }
+	| { kind: 'createAddress' | 'updateAddress' | 'deleteAddress'; value: AddressSnapshot };
 
 /** Apply server-confirmed changes without fabricating a complete, uncached trip. */
 export function applyTripChange(trip: TripPayload, haveHistory: boolean, change: TripChange): TripPayload {
@@ -22,8 +22,8 @@ export function applyTripChange(trip: TripPayload, haveHistory: boolean, change:
 		// Record responses include member snapshots. Keep names from the trip's member list
 		// so a slow record mutation cannot undo a separately confirmed member rename.
 		const members = new Map(trip.addresses.map(address => [address.id, address]));
-		const member = (address: Address) => members.get(address.id) ?? address;
-		const incoming = { ...change.value,
+		const member = (address: AddressSnapshot) => members.get(address.id) ?? { id: address.id, name: address.name, __typename: 'Address' };
+		const incoming = { ...change.value, __typename: 'Record',
 			prePayAddress: change.value.prePayAddress && member(change.value.prePayAddress),
 			shouldPayAddress: change.value.shouldPayAddress?.map(member) ?? null,
 		};
@@ -35,14 +35,14 @@ export function applyTripChange(trip: TripPayload, haveHistory: boolean, change:
 		if (!records.some(record => record.id === value.id)) records.push(value);
 		return { ...trip, records: haveHistory ? records : records.filter(record => record.isActive && !record.isDeleted) };
 	}
-	const address = change.value;
+	const address = { id: change.value.id, name: change.value.name, __typename: 'Address' };
 	if (change.kind === 'deleteAddress') {
 		// Historical records and settlement snapshots still reference removed members.
 		return { ...trip, addresses: trip.addresses.filter(item => item.id !== address.id) };
 	}
 	const replace = (item: Address) => item.id === address.id ? { ...item, ...address } : item;
 	const addresses = trip.addresses.map(replace);
-	if (change.kind === 'createAddress' && !addresses.some(item => item.id === address.id)) addresses.push(address);
+	if (change.kind === 'createAddress' && !addresses.some(item => item.id === address.id)) addresses.push({ ...address, statistics: null });
 	return {
 		...trip, addresses,
 		records: trip.records.map(record => ({

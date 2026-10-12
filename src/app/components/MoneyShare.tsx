@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { useGraphQLClient } from '@/app/lib/tripApi/client';
 import { longStringSimplify } from '@/app/lib/utils';
+import { MemberStatistics } from './MemberStatistics';
 import { Address, Record, RecordCategory } from '../lib/tripApi/types';
 
 interface MoneyShareProps {
@@ -15,6 +16,7 @@ export const MoneyShare: React.FC<MoneyShareProps> = ({ onRepay }) => {
 		queries: { useTrip },
 	} = useGraphQLClient();
 
+	const [view, setView] = useState<'settlement' | 'statistics'>('settlement');
 	const context = useContext(SingleTripContext);
 	const { data: tripData, refetch, loading: isFetching } = useTrip(context?.tripId || '');
 
@@ -41,7 +43,7 @@ export const MoneyShare: React.FC<MoneyShareProps> = ({ onRepay }) => {
 	return (
 		<div className='bg-white p-4 rounded-lg shadow-md'>
 			<h2 className='text-xl font-bold mb-4 text-gray-800'>
-				結算{' '}
+				分帳{' '}
 				<button
 					onClick={() => { void refetch().catch(() => {}); }}
 					disabled={isFetching}
@@ -55,7 +57,16 @@ export const MoneyShare: React.FC<MoneyShareProps> = ({ onRepay }) => {
 					)}
 				</button>
 			</h2>
-			{!tripData.isValid ? <p className='text-center text-red-500'>注意: 包含待校正的帳目，請先校正後再進行結算。</p>
+			<div className='flex gap-2 mb-4' role='group' aria-label='分帳檢視'>
+				{([{ id: 'settlement', label: '結算' }, { id: 'statistics', label: '成員統計' }] as const).map(option => (
+					<button key={option.id} type='button' aria-pressed={view === option.id}
+						onClick={() => setView(option.id)}
+						className={`rounded-lg px-4 py-2 font-semibold focus-visible:outline-2 focus-visible:outline-blue-500 ${view === option.id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+						{option.label}
+					</button>
+				))}
+			</div>
+			{view === 'statistics' ? <MemberStatistics addresses={tripData.addresses} isValid={tripData.isValid} /> : !tripData.isValid ? <p className='text-center text-red-500'>注意: 包含待校正的帳目，請先校正後再進行結算。</p>
 			: tripData.moneyShare.length === 0 ? <p className='text-center text-gray-500'>帳目計算中，或沒有需要分帳的項目。</p>
 			: <div className='space-y-4'>
 				{tripData.moneyShare.map((tx, index) => (

@@ -1,0 +1,164 @@
+# GraphQL schema example
+#
+# https://gqlgen.com/getting-started/
+
+enum RecordCategory {
+	"""
+	average
+	"""
+	NORMAL
+	"""
+	set fix amount list
+	"""
+	FIX
+	"""
+	set Part to split
+	"""
+	PART
+	"""
+	after set fix money choose some address average split last money, use plus mean should engage average sharing
+	"""
+	FIX_BEFORE_NORMAL
+	"""
+	transfer money
+	"""
+	TRANSFER
+}
+
+type Record {
+	id: ID!
+	name: String
+	amount: Float
+	prePayAddress: Address
+	"""
+	time: by JS Date().getTime().toString()
+	"""
+	time: String!
+	shouldPayAddress: [Address!]
+	extendPayMsg: [Float!]
+	category: RecordCategory!
+	parentRecordId: ID
+	isDeleted: Boolean!
+	isValid: Boolean!
+	isActive: Boolean!
+}
+
+type RecordSnapshot {
+	id: ID!
+	name: String
+	amount: Float
+	prePayAddress: AddressSnapshot
+	"""
+	time: by JS Date().getTime().toString()
+	"""
+	time: String!
+	shouldPayAddress: [AddressSnapshot!]
+	extendPayMsg: [Float!]
+	category: RecordCategory!
+	parentRecordId: ID
+	isDeleted: Boolean!
+	isValid: Boolean!
+	isActive: Boolean!
+}
+
+type AddressSnapshot {
+	id: ID!
+	name: String!
+}
+
+type TripSnapshot {
+	id: ID!
+	name: String!
+}
+
+type Payment {
+	amount: Float!
+	address: Address!
+}
+
+type Address {
+	id: ID!
+	name: String!
+	"""
+	Current trip totals, available on all Address fields in queries.
+	Only valid, latest, non-deleted records are included, regardless of haveHistory.
+	Invalid records are skipped entirely, so totals may cover only part of the trip.
+	Members without qualifying records receive zero totals.
+	"""
+	statistics: AddressStatistics
+}
+
+type AddressStatistics {
+	"""Total assigned shares before settlement, including TRANSFER records."""
+	totalExpense: Float!
+	"""Total prepaid amounts, including own shares and TRANSFER records."""
+	totalPrepaid: Float!
+	"""
+	Number of qualifying records paid or shared by this member, counted once per record.
+	Includes TRANSFER records and participation with a zero share.
+	"""
+	activeRecordCount: Int!
+}
+
+type Tx {
+	input: [Payment!]!
+	output: Payment!
+}
+
+type Trip {
+	id: ID!
+	name: String!
+	records: [Record!]!
+	moneyShare: [Tx!]!
+	addresses: [Address!]!
+	isValid: Boolean!
+}
+
+type Subscription {
+	subRecordCreate(tripId: ID!): RecordSnapshot!
+	subRecordUpdate(tripId: ID!): RecordSnapshot!
+	subAddressCreate(tripId: ID!): AddressSnapshot!
+	subAddressUpdate(tripId: ID!): AddressSnapshot!
+	subAddressDelete(tripId: ID!): AddressSnapshot!
+}
+
+type Query {
+	trip(tripId: ID!, haveHistory: Boolean! = false): Trip
+}
+
+input NewRecord {
+	name: String!
+	amount: Float!
+	prePayAddressId: ID!
+	"""
+	time: by JS Date().getTime().toString()
+	"""
+	time: String
+	shouldPayAddressIds: [ID!]!
+	extendPayMsg: [Float!]
+	category: RecordCategory
+	isDeleted: Boolean
+}
+
+input EditRecord {
+	old: NewRecord
+	new: NewRecord
+}
+
+input NewTrip {
+	name: String!
+}
+
+input NewAddress {
+	name: String!
+}
+
+type Mutation {
+	createTrip(input: NewTrip!): TripSnapshot!
+	updateTrip(tripId: ID!, input: NewTrip!): TripSnapshot!
+	createRecord(tripId: ID!, input: NewRecord!): RecordSnapshot!
+	updateRecord(recordId: ID!, input: EditRecord!): RecordSnapshot!
+	createAddress(tripId: ID!, input: NewAddress!): AddressSnapshot!
+	updateAddress(tripId: ID!, addressId: ID!, input: NewAddress!): AddressSnapshot!
+	deleteAddress(tripId: ID!, addressId: ID!): AddressSnapshot!
+}

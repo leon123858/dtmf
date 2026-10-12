@@ -1,7 +1,7 @@
 import { gql } from '@apollo/client';
 
 const SUB_RECORD_FIELDS = gql`
-	fragment SubscriptionRecordFields on Record {
+	fragment SubscriptionRecordFields on RecordSnapshot {
 		id
 		name
 		amount

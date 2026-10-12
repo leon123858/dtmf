@@ -5,7 +5,13 @@ export enum RecordCategory {
 	FIX_BEFORE_NORMAL = 'FIX_BEFORE_NORMAL', TRANSFER = 'TRANSFER',
 }
 
-export interface Address { id: ID; name: string }
+export interface AddressSnapshot { id: ID; name: string }
+export interface TripSnapshot { id: ID; name: string }
+export interface AddressStatistics {
+ totalExpense: number; totalPrepaid: number; activeRecordCount: number;
+}
+// Statistics are selected only on the trip member list.
+export interface Address extends AddressSnapshot { statistics?: AddressStatistics | null }
 export interface Record {
 	id: ID; name: string; amount: number; prePayAddress: Address; time: string;
 	shouldPayAddress: Address[]; extendPayMsg: number[];
@@ -15,6 +21,9 @@ export interface Record {
 export interface RecordPayload extends Omit<Record, 'name' | 'amount' | 'prePayAddress' | 'shouldPayAddress' | 'extendPayMsg'> {
  name: string | null; amount: number | null; prePayAddress: Address | null;
  shouldPayAddress: Address[] | null; extendPayMsg: number[] | null;
+}
+export interface RecordSnapshot extends Omit<RecordPayload, 'prePayAddress' | 'shouldPayAddress'> {
+ prePayAddress: AddressSnapshot | null; shouldPayAddress: AddressSnapshot[] | null;
 }
 export interface TripPayload extends Omit<Trip, 'records'> { records: RecordPayload[] }
 export interface Payment { amount: number; address: Address }
@@ -28,37 +37,37 @@ export interface NewRecordInput {
 	shouldPayAddressIds: ID[]; time?: string; extendPayMsg?: number[];
 	category?: RecordCategory; isDeleted?: boolean;
 }
-export interface EditRecordInput { old: NewRecordInput; new: NewRecordInput }
+export interface EditRecordInput { old?: NewRecordInput | null; new?: NewRecordInput | null }
 export interface NewTripInput { name: string }
 export interface NewAddressInput { name: string }
 
 export interface TripQueryVariables { tripId: ID; haveHistory?: boolean }
 export interface TripQueryData { trip: TripPayload | null }
 export interface CreateTripMutationVariables { input: NewTripInput }
-export interface CreateTripMutationData { createTrip: Pick<Trip, 'id'> }
+export interface CreateTripMutationData { createTrip: Pick<TripSnapshot, 'id'> }
 export interface UpdateTripMutationVariables { tripId: ID; input: NewTripInput }
-export interface UpdateTripMutationData { updateTrip: Pick<Trip, 'id' | 'name'> }
+export interface UpdateTripMutationData { updateTrip: TripSnapshot }
 export interface CreateRecordMutationVariables { tripId: ID; input: NewRecordInput }
-export interface CreateRecordMutationData { createRecord: RecordPayload }
+export interface CreateRecordMutationData { createRecord: RecordSnapshot }
 export interface UpdateRecordMutationVariables { recordId: ID; input: EditRecordInput }
-export interface UpdateRecordMutationData { updateRecord: RecordPayload }
+export interface UpdateRecordMutationData { updateRecord: RecordSnapshot }
 export interface CreateAddressMutationVariables { tripId: ID; input: NewAddressInput }
-export interface CreateAddressMutationData { createAddress: Address }
+export interface CreateAddressMutationData { createAddress: AddressSnapshot }
 export interface UpdateAddressMutationVariables { tripId: ID; addressId: ID; input: NewAddressInput }
-export interface UpdateAddressMutationData { updateAddress: Address }
+export interface UpdateAddressMutationData { updateAddress: AddressSnapshot }
 export interface DeleteAddressMutationVariables { tripId: ID; addressId: ID }
-export interface DeleteAddressMutationData { deleteAddress: Address }
+export interface DeleteAddressMutationData { deleteAddress: AddressSnapshot }
 
 export interface SubRecordCreateSubscriptionVariables { tripId: ID }
-export interface SubRecordCreateSubscriptionData { subRecordCreate: RecordPayload }
+export interface SubRecordCreateSubscriptionData { subRecordCreate: RecordSnapshot }
 export interface SubRecordUpdateSubscriptionVariables { tripId: ID }
-export interface SubRecordUpdateSubscriptionData { subRecordUpdate: RecordPayload }
+export interface SubRecordUpdateSubscriptionData { subRecordUpdate: RecordSnapshot }
 export interface SubAddressCreateSubscriptionVariables { tripId: ID }
-export interface SubAddressCreateSubscriptionData { subAddressCreate: Address }
+export interface SubAddressCreateSubscriptionData { subAddressCreate: AddressSnapshot }
 export interface SubAddressUpdateSubscriptionVariables { tripId: ID }
-export interface SubAddressUpdateSubscriptionData { subAddressUpdate: Address }
+export interface SubAddressUpdateSubscriptionData { subAddressUpdate: AddressSnapshot }
 export interface SubAddressDeleteSubscriptionVariables { tripId: ID }
-export interface SubAddressDeleteSubscriptionData { subAddressDelete: Address }
+export interface SubAddressDeleteSubscriptionData { subAddressDelete: AddressSnapshot }
 
 export interface GraphQLResponse<T> {
 	data?: T;

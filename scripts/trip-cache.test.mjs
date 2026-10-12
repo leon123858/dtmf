@@ -22,8 +22,8 @@ function load(name) {
 const { createTripCache, updateTripCache } = load('cache');
 const { createTripSynchronizer } = load('sync');
 const { GET_TRIP } = load('query');
-const alice = { __typename: 'Address', id: 'alice', name: 'Alice' };
-const bob = { __typename: 'Address', id: 'bob', name: 'Bob' };
+const alice = { __typename: 'Address', id: 'alice', name: 'Alice', statistics: { totalExpense: 50, totalPrepaid: 100, activeRecordCount: 1 } };
+const bob = { __typename: 'Address', id: 'bob', name: 'Bob', statistics: { totalExpense: 50, totalPrepaid: 0, activeRecordCount: 1 } };
 const record = (id = 'r1', extra = {}) => ({
   __typename: 'Record', id, name: 'Lunch', amount: 100, prePayAddress: alice,
   shouldPayAddress: [alice, bob], extendPayMsg: [50, 50], category: 'NORMAL',
@@ -279,4 +279,53 @@ test('finishing an obsolete request does not remove the newer pending request', 
   await latest;
   requests[1].succeed(trip());
   await history;
+});
+
+// This committed contract mirrors the supplied backend schema, without a sibling repo dependency.
+test('all GraphQL operations validate against the snapshot/statistics schema', () => {
+  const { buildSchema, validate } = require('graphql');
+  const schema = buildSchema(readFileSync(new URL('./fixtures/trip-schema.graphql', import.meta.url), 'utf8'));
+  for (const module of ['query', 'mutation', 'subscription']) {
+    for (const [name, document] of Object.entries(load(module))) {
+      assert.deepEqual(validate(schema, document).map(error => error.message), [], name);
+    }
+  }
+});
+
+test('snapshot writes preserve query typenames and server statistics in both modes', () => {
+  const cache = seeded();
+  const snapshot = { __typename: 'AddressSnapshot', id: 'alice', name: 'Alicia' };
+  updateTripCache(cache, 'trip-1', { kind: 'updateAddress', value: snapshot });
+  updateTripCache(cache, 'trip-1', { kind: 'record', value: record('r2', {
+    __typename: 'RecordSnapshot', prePayAddress: { ...snapshot, name: 'Stale Alice' },
+    shouldPayAddress: [{ __typename: 'AddressSnapshot', id: 'bob', name: 'Bob' }],
+  }) });
+  updateTripCache(cache, 'trip-1', { kind: 'createAddress', value: { __typename: 'AddressSnapshot', id: 'new', name: 'New' } });
+  for (const history of [false, true]) {
+    const value = read(cache, history);
+    assert.deepEqual(json(value.addresses[0].statistics), alice.statistics);
+    assert.equal(value.addresses[0].__typename, 'Address');
+    assert.equal(value.addresses.at(-1).statistics, null);
+    assert.equal(value.records.at(-1).__typename, 'Record');
+    assert.equal(value.records.at(-1).prePayAddress.__typename, 'Address');
+    assert.equal(value.records.at(-1).prePayAddress.name, 'Alicia');
+  }
+});
+
+test('slow query statistics survive replayed snapshot writes and refresh both modes', async () => {
+  const { cache, requests, synchronize } = network();
+  const pending = synchronize(false);
+  updateTripCache(cache, 'trip-1', { kind: 'updateAddress', value: { __typename: 'AddressSnapshot', id: 'alice', name: 'Alicia' } });
+  updateTripCache(cache, 'trip-1', { kind: 'record', value: record('r2', { __typename: 'RecordSnapshot', parentRecordId: 'r1', amount: 300 }) });
+  assert.equal(read(cache).addresses[0].statistics.totalPrepaid, 100);
+  const statistics = { totalExpense: 150, totalPrepaid: 300, activeRecordCount: 1 };
+  requests[0].succeed(trip({ addresses: [{ ...alice, statistics }, bob] }));
+  await pending;
+  for (const history of [false, true]) {
+    const value = read(cache, history);
+    assert.deepEqual(json(value.addresses[0].statistics), statistics);
+    assert.equal(value.addresses[0].name, 'Alicia');
+    assert.equal(value.records.at(-1).amount, 300);
+  }
+  assert.equal(requests.length, 1);
 });
