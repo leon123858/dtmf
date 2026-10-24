@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { AuthControls } from './components/AuthControls';
 import { TripCreationForm } from '@/app/components/TripCreateForm';
 import { BookOpenIcon } from '@heroicons/react/24/solid';
 
@@ -44,6 +45,7 @@ export default async function HomePage() {
 						<span className='hidden sm:inline'>力量兔兔 | </span>
 						<span>旅遊分帳</span>
 					</h1>
+					<AuthControls />
 				</nav>
 			</header>
 

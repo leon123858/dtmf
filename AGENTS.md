@@ -38,7 +38,7 @@ Run `yarn lint`, `yarn typecheck`, `yarn build`, `yarn test:node`, and `yarn tes
 - `yarn test:e2e`: run all E2E specs once, headlessly, with one worker and no retries.
 - `yarn test:e2e:headed`: run the same specs in a visible browser with a 200ms delay between browser operations, without Inspector. `yarn test:e2e --headed` also works.
 - `yarn test:e2e:check`: verify Playwright/Chromium, frontend startup, and backend health without running specs. Add `--headed` to verify the display too.
-- `yarn test:node`: run browser preflight, runner orchestration, trip action, and Apollo cache/synchronization tests with Node's built-in test runner.
+- `yarn test:node`: run browser preflight, runner orchestration, trip action, authentication store, and Apollo cache/synchronization tests with Node's built-in test runner.
 
 `scripts/test-e2e.mjs` owns preflight, service startup, sequential suite execution, result aggregation, and cleanup. Add intercepted GraphQL specs under `e2e/fixtures/` and real-backend specs under `e2e/integration/`; Playwright discovers them automatically without package.json edits. Fixtures run first, then integration. A failed suite does not prevent the other runnable suite from executing. Reports are stored in `playwright-report/<suite>/`; screenshots, traces, and attached JSON measurements in `test-results/<suite>/`.
 
