@@ -1,5 +1,6 @@
 import { useContext, useId } from 'react';
 import { SingleTripContext } from '../context/SingleTripProvider';
+import { TripFavorite } from './TripFavorite';
 import { AuthControls } from './AuthControls';
 import { ModalDialog } from './ModalDialog';
 import { useRouter } from 'next/navigation';
@@ -117,9 +118,10 @@ export const SideBar: React.FC<SideBarProps> = ({
 							/>
 						</label>
 					)}
+					{context && <TripFavorite tripId={context.tripId} name={name} />}
 					<div className='mt-auto pt-6'>
 						<div className='border-t border-gray-600 pt-5'>
-							<AuthControls />
+							<AuthControls beforeLogin={() => setIsOpen(false)} />
 						</div>
 					</div>
 				</div>

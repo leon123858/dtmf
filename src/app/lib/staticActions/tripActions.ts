@@ -1,30 +1,27 @@
 'use server';
 
-import { ApolloError } from '@apollo/client';
-import { createTripHttp } from '../tripApi/http';
+import { TripApiError } from '../tripApi/public';
+import { createServerTripApi } from '../tripApi/http';
 
 const ERROR_MESSAGE = '創建新旅程失敗，請稍後再試。';
 
-type CreateTripResult = { error: string; tripId?: never } | { tripId: string; error?: never };
+type CreateTripResult = { error: string; unauthenticated?: boolean; tripId?: never } | { tripId: string; error?: never; unauthenticated?: never };
 
-export async function createTripAction(formData: FormData): Promise<CreateTripResult> {
+export async function createTripAction(formData: FormData, token?: string): Promise<CreateTripResult> {
 	const tripName = formData.get('tripName');
 	if (typeof tripName !== 'string' || tripName.trim() === '') {
 		return { error: '旅程名稱不能為空。' };
 	}
 
 	try {
-		const result = await createTripHttp({ name: tripName.trim() });
-		if (!result?.createTrip?.id) {
+		const result = await createServerTripApi(token).createTrip({ name: tripName.trim() });
+		if (!result?.id) {
 			console.error('創建新旅程時缺少旅程 ID');
 			return { error: ERROR_MESSAGE };
 		}
-		return { tripId: result.createTrip.id };
+		return { tripId: result.id };
 	} catch (error) {
-		console.error('創建新旅程時出錯:', error);
-		const message = error instanceof ApolloError && !error.networkError
-			? error.graphQLErrors.map(item => item.message).filter(Boolean).join('\n')
-			: '';
-		return { error: message || ERROR_MESSAGE };
+		if (error instanceof TripApiError && error.code === 'unauthenticated') return { error: '登入已失效，請重新登入。', unauthenticated: true };
+		return { error: error instanceof TripApiError && error.code === 'unavailable' ? error.message : ERROR_MESSAGE };
 	}
 }

@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { MemberProvider } from './context/MemberProvider';
 import { AuthProvider } from './context/AuthProvider';
-import { ApolloWrapper } from './lib/tripApi/wrapper';
+import { ApolloWrapper } from './context/ApolloWrapper';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -22,7 +23,9 @@ export default function RootLayout({
 		<html lang='zh-TW'>
 			<body className={inter.className}>
 				<AuthProvider>
-					<ApolloWrapper>{children}</ApolloWrapper>
+					<ApolloWrapper>
+						<MemberProvider>{children}</MemberProvider>
+					</ApolloWrapper>
 				</AuthProvider>
 			</body>
 		</html>

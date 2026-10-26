@@ -8,6 +8,8 @@ import ts from 'typescript';
 const require = createRequire(import.meta.url);
 const { ApolloClient, ApolloLink, Observable } = require('@apollo/client');
 const modules = new Map();
+let now;
+class Clock extends Date { static now() { return now ?? Date.now(); } }
 function load(name) {
   if (modules.has(name)) return modules.get(name);
   const source = readFileSync(new URL(`../src/app/lib/tripApi/${name}.ts`, import.meta.url), 'utf8');
@@ -16,11 +18,12 @@ function load(name) {
   const compiled = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
-  vm.runInNewContext(compiled, { exports, require: id => id.startsWith('./') ? load(id.slice(2)) : require(id) });
+  vm.runInNewContext(compiled, { Date: Clock, exports, require: id => id.startsWith('./') ? load(id.slice(2)) : require(id) });
   return exports;
 }
 const { createTripCache, updateTripCache } = load('cache');
-const { createTripSynchronizer } = load('sync');
+const { TripApi } = load('client');
+const { TripCache } = load('cache');
 const { GET_TRIP } = load('query');
 const alice = { __typename: 'Address', id: 'alice', name: 'Alice', statistics: { totalExpense: 50, totalPrepaid: 100, activeRecordCount: 1 } };
 const bob = { __typename: 'Address', id: 'bob', name: 'Bob', statistics: { totalExpense: 50, totalPrepaid: 0, activeRecordCount: 1 } };
@@ -127,68 +130,16 @@ function network(cache = seeded()) {
   const requests = [];
   const client = new ApolloClient({ cache, link: new ApolloLink(operation => new Observable(observer => {
     requests.push({ operation,
-      succeed(value) { observer.next({ data: { trip: value } }); observer.complete(); },
+      succeed(value) {
+        const field = { GetTrip: 'trip', UpdateTrip: 'updateTrip', UpdateAddress: 'updateAddress', CreateAddress: 'createAddress', DeleteAddress: 'deleteAddress', CreateRecord: 'createRecord', UpdateRecord: 'updateRecord' }[operation.operationName];
+        observer.next({ data: { [field]: value } }); observer.complete();
+      },
       fail() { observer.error(new Error('Offline')); },
     });
   })) });
-  return { cache, client, requests, synchronize: createTripSynchronizer(client, 'trip-1') };
+  const api = new TripApi(client);
+  return { cache, client, requests, api };
 }
-
-test('slow queries replay successful mutations before writing cache, with no extra query', async () => {
-  const { cache, requests, synchronize } = network();
-  const snapshot = trip();
-  const pending = synchronize(false);
-  const change = { kind: 'record', value: record('r2', { parentRecordId: 'r1', amount: 200 }) };
-  updateTripCache(cache, 'trip-1', change);
-  assert.equal(read(cache).records[0].amount, 200);
-  requests[0].succeed(snapshot);
-  await pending;
-  assert.deepEqual(read(cache).records.map(item => item.id), ['r2']);
-  assert.equal(read(cache).records[0].amount, 200);
-  assert.equal(read(cache, true).records[0].isActive, false);
-  assert.equal(requests.length, 1);
-  const next = synchronize(false);
-  requests[1].succeed(trip({ records: [change.value], moneyShare: [] }));
-  await next;
-  assert.deepEqual(read(cache).moneyShare, []);
-});
-
-test('in-flight reads coalesce, failures preserve cache, and later reads retry', async () => {
-  const { cache, requests, synchronize } = network();
-  const before = json(cache.extract());
-  const pending = synchronize(false);
-  assert.equal(synchronize(false), pending);
-  assert.equal(requests.length, 1);
-  requests[0].fail();
-  await assert.rejects(pending, /Offline/);
-  assert.deepEqual(json(cache.extract()), before);
-  const retry = synchronize(false);
-  requests[1].succeed(trip({ name: 'Recovered' }));
-  await retry;
-  assert.equal(read(cache).name, 'Recovered');
-});
-
-test('late previous-mode response cannot overwrite newer normalized records', async () => {
-  const { cache, requests, synchronize } = network();
-  const old = synchronize(false);
-  const current = synchronize(true);
-  requests[1].succeed(trip({ records: [record('r1', { name: 'Latest' })] }));
-  await current;
-  requests[0].succeed(trip());
-  await old;
-  assert.equal(read(cache, true).records[0].name, 'Latest');
-});
-
-test('an initially uncached history query also receives mutations made while loading', async () => {
-  const { cache, requests, synchronize } = network(createTripCache());
-  write(cache);
-  const pending = synchronize(true);
-  updateTripCache(cache, 'trip-1', { kind: 'record', value: record('r2', { parentRecordId: 'r1', isDeleted: true }) });
-  requests[0].succeed(trip());
-  await pending;
-  assert.equal(read(cache).records.length, 0);
-  assert.deepEqual(read(cache, true).records.map(item => [item.id, item.isActive]), [['r1', false], ['r2', true]]);
-});
 
 test('editing a stale version retires it even if the server parent was not cached', () => {
   const cache = seeded();
@@ -196,62 +147,6 @@ test('editing a stale version retires it even if the server parent was not cache
     value: record('r3', { parentRecordId: 'r2', name: 'Merged edit' }) });
   assert.deepEqual(read(cache).records.map(item => item.id), ['r3']);
   assert.deepEqual(read(cache, true).records.map(item => [item.id, item.isActive]), [['r1', false], ['r3', true]]);
-});
-
-test('query reconciliation also preserves trip and member writes', async () => {
-  const { cache, requests, synchronize } = network();
-  const pending = synchronize(false);
-  updateTripCache(cache, 'trip-1', { kind: 'trip', value: { id: 'trip-1', name: 'New trip name' } });
-  updateTripCache(cache, 'trip-1', { kind: 'createAddress', value: { __typename: 'Address', id: 'guest', name: 'Guest' } });
-  updateTripCache(cache, 'trip-1', { kind: 'updateAddress', value: { ...alice, name: 'Alicia' } });
-  updateTripCache(cache, 'trip-1', { kind: 'deleteAddress', value: bob });
-  requests[0].succeed(trip());
-  await pending;
-  const value = read(cache);
-  assert.equal(value.name, 'New trip name');
-  assert.deepEqual(value.addresses.map(item => [item.id, item.name]), [['alice', 'Alicia'], ['guest', 'Guest']]);
-  assert.equal(value.records[0].prePayAddress.name, 'Alicia');
-  assert.equal(value.records[0].shouldPayAddress[1].name, 'Bob');
-});
-
-test('remounting a trip shares its in-flight query and mutation journal', async () => {
-  const { cache, client, requests, synchronize } = network();
-  const pending = synchronize(false);
-  updateTripCache(cache, 'trip-1', { kind: 'trip', value: { id: 'trip-1', name: 'Renamed' } });
-  const remounted = createTripSynchronizer(client, 'trip-1');
-  assert.equal(remounted(false), pending);
-  requests[0].succeed(trip());
-  await pending;
-  assert.equal(requests.length, 1);
-  assert.equal(read(cache).name, 'Renamed');
-});
-
-test('a successful older query is cached if the newer mode query failed', async () => {
-  const { cache, requests, synchronize } = network();
-  const current = synchronize(false);
-  const history = synchronize(true);
-  requests[1].fail();
-  await assert.rejects(history, /Offline/);
-  requests[0].succeed(trip({ name: 'Fresh current data' }));
-  await current;
-  assert.equal(read(cache).name, 'Fresh current data');
-});
-
-test('returning to a mode starts a fresh query instead of reusing its superseded request', async () => {
-  const { cache, requests, synchronize } = network();
-  const oldCurrent = synchronize(false);
-  const history = synchronize(true);
-  const newCurrent = synchronize(false);
-  assert.equal(requests.length, 3);
-  assert.notEqual(newCurrent, oldCurrent);
-  requests[2].succeed(trip({ name: 'Latest current', records: [record('r1', { name: 'Latest record' })] }));
-  await newCurrent;
-  requests[1].succeed(trip());
-  await history;
-  requests[0].succeed(trip());
-  await oldCurrent;
-  assert.equal(read(cache).name, 'Latest current');
-  assert.equal(read(cache).records[0].name, 'Latest record');
 });
 
 test('a delayed record response does not undo a confirmed member rename', () => {
@@ -266,20 +161,6 @@ test('a delayed record response does not undo a confirmed member rename', () => 
   }
 });
 
-test('finishing an obsolete request does not remove the newer pending request', async () => {
-  const { requests, synchronize } = network();
-  const old = synchronize(false);
-  const history = synchronize(true);
-  const latest = synchronize(false);
-  requests[0].succeed(trip());
-  await old;
-  assert.equal(synchronize(false), latest);
-  assert.equal(requests.length, 3);
-  requests[2].succeed(trip());
-  await latest;
-  requests[1].succeed(trip());
-  await history;
-});
 
 // This committed contract mirrors the supplied backend schema, without a sibling repo dependency.
 test('all GraphQL operations validate against the snapshot/statistics schema', () => {
@@ -312,20 +193,237 @@ test('snapshot writes preserve query typenames and server statistics in both mod
   }
 });
 
-test('slow query statistics survive replayed snapshot writes and refresh both modes', async () => {
-  const { cache, requests, synchronize } = network();
-  const pending = synchronize(false);
-  updateTripCache(cache, 'trip-1', { kind: 'updateAddress', value: { __typename: 'AddressSnapshot', id: 'alice', name: 'Alicia' } });
-  updateTripCache(cache, 'trip-1', { kind: 'record', value: record('r2', { __typename: 'RecordSnapshot', parentRecordId: 'r1', amount: 300 }) });
-  assert.equal(read(cache).addresses[0].statistics.totalPrepaid, 100);
-  const statistics = { totalExpense: 150, totalPrepaid: 300, activeRecordCount: 1 };
-  requests[0].succeed(trip({ addresses: [{ ...alice, statistics }, bob] }));
-  await pending;
-  for (const history of [false, true]) {
-    const value = read(cache, history);
-    assert.deepEqual(json(value.addresses[0].statistics), statistics);
-    assert.equal(value.addresses[0].name, 'Alicia');
-    assert.equal(value.records.at(-1).amount, 300);
+
+test('trip API owns mutation writes and cache-only observations', async () => {
+  const { TripApi } = load('client');
+  const calls = [];
+  const cache = seeded();
+  const client = new ApolloClient({ cache, link: new ApolloLink(operation => new Observable(observer => {
+    calls.push(operation.operationName);
+    observer.next({ data: { updateTrip: { __typename: 'TripSnapshot', id: 'trip-1', name: 'Renamed' } } });
+    observer.complete();
+  })) });
+  const api = new TripApi(client);
+  let notifications = 0;
+  const stop = api.subscribe('trip-1', () => notifications++);
+  const snapshot = api.getSnapshot('trip-1', false);
+  assert.equal(snapshot, api.getSnapshot('trip-1', false));
+  assert.equal(calls.length, 0);
+  await api.updateTrip({ tripId: 'trip-1', input: { name: 'Renamed' } });
+  assert.equal(api.getSnapshot('trip-1', false).name, 'Renamed');
+  assert.equal(api.getSnapshot('trip-1', true).name, 'Renamed');
+  assert.ok(notifications > 0);
+  stop();
+  const before = notifications;
+  await api.updateTrip({ tripId: 'trip-1', input: { name: 'Renamed' } });
+  assert.equal(notifications, before);
+  assert.deepEqual(calls, ['UpdateTrip', 'UpdateTrip']);
+  client.stop();
+});
+
+test('trip API rejects incomplete results and converts transport errors without writes', async () => {
+  const { TripApi } = load('client');
+  for (const response of [{ data: { updateTrip: null } }, { errors: [{ message: 'invalid trip' }] }]) {
+    const cache = seeded();
+    const client = new ApolloClient({ cache, link: new ApolloLink(() => new Observable(observer => { observer.next(response); observer.complete(); })) });
+    const api = new TripApi(client);
+    await assert.rejects(api.updateTrip({ tripId: 'trip-1', input: { name: 'Renamed' } }), error => error.name === 'TripApiError' && error.code === 'unavailable');
+    assert.equal(api.getSnapshot('trip-1', false).name, 'Trip');
+    client.stop();
   }
+});
+
+const refresh = (api, haveHistory = false, source = 'foreground', tripId = 'trip-1') => api.refresh({ tripId, haveHistory, source });
+const rename = (api, name = 'Renamed') => api.updateTrip({ tripId: 'trip-1', input: { name } });
+const flush = () => new Promise(resolve => setImmediate(resolve));
+
+test('active refresh is shared across API instances even with a waiting writer', async () => {
+  const { api, client, cache, requests } = network();
+  const first = refresh(api);
+  const writer = rename(api);
+  const joined = refresh(new TripApi(client));
+  assert.equal(joined, first);
   assert.equal(requests.length, 1);
+  requests[0].succeed(trip());
+  await first;
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1].operation.operationName, 'UpdateTrip');
+  requests[1].succeed({ id: 'trip-1', name: 'Renamed' });
+  await writer;
+  assert.equal(read(cache).name, 'Renamed');
+  assert.equal(read(cache, true).name, 'Renamed');
+  client.stop();
+});
+
+test('different modes queue; queued refreshes do not share promises', async () => {
+  const { api, requests, client } = network();
+  const first = refresh(api);
+  const history = refresh(api, true);
+  const secondHistory = refresh(api, true);
+  assert.notEqual(history, secondHistory);
+  assert.equal(requests.length, 1);
+  requests[0].succeed(trip()); await first;
+  assert.equal(requests.length, 2);
+  assert.equal(refresh(api, true), history);
+  requests[1].succeed(trip()); await history;
+  assert.equal(requests.length, 3);
+  requests[2].succeed(trip()); await secondHistory;
+  client.stop();
+});
+
+test('writers and later refresh run FIFO through cache commit', async () => {
+  const { api, requests, cache, client } = network();
+  const first = rename(api, 'First');
+  const second = rename(api, 'Second');
+  const query = refresh(api);
+  assert.equal(requests.length, 1);
+  requests[0].succeed({ id: 'trip-1', name: 'First' }); await first;
+  assert.equal(read(cache).name, 'First');
+  assert.equal(requests.length, 2);
+  requests[1].succeed({ id: 'trip-1', name: 'Second' }); await second;
+  assert.equal(read(cache).name, 'Second');
+  assert.equal(requests.length, 3);
+  requests[2].succeed(trip({ name: 'Server after writes' })); await query;
+  assert.equal(read(cache).name, 'Server after writes');
+  client.stop();
+});
+
+test('refresh failure is shared, preserves cache and releases the next writer', async () => {
+  const { api, requests, cache, client } = network();
+  const before = json(cache.extract());
+  const first = refresh(api);
+  assert.equal(refresh(api), first);
+  const writer = rename(api);
+  const failed = assert.rejects(first, /服務暫時無法使用/);
+  requests[0].fail(); await failed;
+  assert.deepEqual(json(cache.extract()), before);
+  assert.equal(requests.length, 2);
+  requests[1].succeed({ id: 'trip-1', name: 'Recovered' }); await writer;
+  assert.equal(read(cache).name, 'Recovered');
+  client.stop();
+});
+
+test('mutation errors and incomplete responses release the next operation', async () => {
+  for (const fail of [true, false]) {
+    const { api, requests, cache, client } = network();
+    const writer = rename(api);
+    const query = refresh(api);
+    const failed = assert.rejects(writer);
+    if (fail) requests[0].fail(); else requests[0].succeed(null);
+    await failed;
+    assert.equal(read(cache).name, 'Trip');
+    assert.equal(requests.length, 2);
+    requests[1].succeed(trip({ name: 'Recovered' })); await query;
+    assert.equal(read(cache).name, 'Recovered');
+    client.stop();
+  }
+});
+
+test('different trips can refresh concurrently and null is authoritative', async () => {
+  const { api, requests, cache, client } = network();
+  const one = refresh(api);
+  const two = refresh(api, false, 'foreground', 'trip-2');
+  assert.equal(requests.length, 2);
+  requests[1].succeed(trip({ id: 'trip-2', records: [], addresses: [], moneyShare: [] })); await two;
+  requests[0].succeed(null); await one;
+  assert.equal(read(cache), null);
+  assert.equal(read(cache, false, 'trip-2').id, 'trip-2');
+  client.stop();
+});
+
+test('polling uses completion time, foreground bypasses cooldown and active polls share', async () => {
+  now = 0;
+  const { api, requests, client } = network();
+  try {
+    const first = refresh(api);
+    now = 1000;
+    requests[0].succeed(trip()); await first;
+    now = 20000;
+    assert.equal(await refresh(api, false, 'background'), 'skipped');
+    assert.equal(requests.length, 1);
+    const manual = refresh(api);
+    assert.equal(requests.length, 2);
+    assert.equal(refresh(api, false, 'background'), manual);
+    requests[1].succeed(trip()); await manual;
+    now = 39999;
+    await refresh(api, false, 'background');
+    assert.equal(requests.length, 2);
+    now = 40000;
+    const poll = refresh(api, false, 'background');
+    assert.equal(requests.length, 3);
+    requests[2].succeed(trip()); await poll;
+  } finally { now = undefined; client.stop(); }
+});
+
+test('background polls do not accumulate and recheck cooldown after queueing', async () => {
+  now = 0;
+  const { api, requests, client } = network();
+  try {
+    const writer = rename(api);
+    const manual = refresh(api, true);
+    const poll = refresh(api, false, 'background');
+    now = 60000;
+    assert.equal(await refresh(api, false, 'background'), 'skipped');
+    assert.equal(requests.length, 1);
+    requests[0].succeed({ id: 'trip-1', name: 'Renamed' }); await writer;
+    requests[1].succeed(trip()); await manual;
+    await poll;
+    assert.equal(requests.length, 2);
+    now = 80000;
+    const next = refresh(api, false, 'background');
+    assert.equal(requests.length, 3);
+    requests[2].succeed(trip()); await next;
+  } finally { now = undefined; client.stop(); }
+});
+
+test('failed refresh updates cooldown but manual retry remains immediate', async () => {
+  now = 0;
+  const { api, requests, client } = network();
+  try {
+    const poll = refresh(api, false, 'background');
+    const failed = assert.rejects(poll);
+    now = 1000;
+    requests[0].fail(); await failed;
+    now = 20000;
+    assert.equal(await refresh(api, false, 'background'), 'skipped');
+    assert.equal(requests.length, 1);
+    const retry = refresh(api);
+    requests[1].succeed(trip()); await retry;
+  } finally { now = undefined; client.stop(); }
+});
+
+test('synchronous exceptions release the lock and snapshots stay readable while locked', async () => {
+  const cache = seeded();
+  const adapter = new TripCache(cache);
+  const failed = adapter.runMutation('trip-1', () => { throw new Error('sync failure'); });
+  await assert.rejects(failed, /sync failure/);
+  let release;
+  const blocked = adapter.runMutation('trip-1', () => new Promise(resolve => { release = resolve; }));
+  assert.equal(adapter.read('trip-1', false).name, 'Trip');
+  let entered = false;
+  const next = new TripCache(cache).runMutation('trip-1', async () => { entered = true; });
+  await flush(); assert.equal(entered, false);
+  release(); await blocked; await next;
+  assert.equal(entered, true);
+});
+
+test('cooldown is per trip and skipped ticks and mutations do not move refreshAt', async () => {
+  now = 0;
+  const { api, requests, client } = network();
+  try {
+    const first = refresh(api);
+    requests[0].succeed(trip()); await first;
+    now = 1000;
+    const other = refresh(api, false, 'background', 'trip-2');
+    assert.equal(requests.length, 2);
+    requests[1].succeed(trip({ id: 'trip-2', records: [], addresses: [], moneyShare: [] })); await other;
+    now = 19000;
+    assert.equal(await refresh(api, false, 'background'), 'skipped');
+    const writer = rename(api);
+    requests[2].succeed({ id: 'trip-1', name: 'Renamed' }); await writer;
+    now = 20000;
+    const poll = refresh(api, false, 'background');
+    assert.equal(requests.length, 4);
+    requests[3].succeed(trip({ name: 'Renamed' })); await poll;
+  } finally { now = undefined; client.stop(); }
 });

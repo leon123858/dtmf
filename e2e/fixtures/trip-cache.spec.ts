@@ -86,19 +86,19 @@ async function edit(page: Page, from: string, to: string) {
   await expect(page.getByRole('button', { name: `查看 ${to}`, exact: true })).toBeVisible();
 }
 
-test('one initial query and one poll per interval, regardless of mounted readers', async ({ page }) => {
+test('one initial query and one eligible poll, regardless of mounted readers', async ({ page }) => {
   const state = await fixture(page);
   for (const tab of ['分帳', '成員', '記帳', '帳目', '分帳', '成員', '帳目']) {
     await page.getByRole('button', { name: tab, exact: true }).click();
   }
   expect(state.queries).toEqual([false]);
   for (let count = 2; count <= 3; count++) {
-    await page.clock.fastForward(20_000);
+    await page.clock.fastForward(40_000);
     await expect.poll(() => state.queries.length).toBe(count);
   }
   await history(page, true);
   await expect.poll(() => state.queries).toEqual([false, false, false, true]);
-  await page.clock.fastForward(20_000);
+  await page.clock.fastForward(40_000);
   await expect.poll(() => state.queries).toEqual([false, false, false, true, true]);
   await history(page, false);
   await expect.poll(() => state.queries.length).toBe(6);
@@ -151,19 +151,23 @@ test('history mutations preserve parents and tombstones without refetching', asy
   await expect(page.getByText('尚無帳目，到「記帳」分頁開始記帳')).toBeVisible();
 });
 
-test('slow polling never rolls back a successful edit and does not delay saving', async ({ page }) => {
+test('slow polling holds mutations until the query commits, without extra queries', async ({ page }) => {
   const state = await fixture(page);
   state.holdNextQuery = true;
-  await page.clock.fastForward(20_000);
+  await page.clock.fastForward(40_000);
   await expect.poll(() => !!state.release).toBe(true);
-  await edit(page, 'Lunch', 'Dinner');
+  await page.getByRole('button', { name: '編輯 Lunch', exact: true }).click();
+  await page.getByLabel('項目名稱', { exact: true }).fill('Dinner');
+  await page.getByRole('button', { name: '儲存變更', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Saving… ⏳', exact: true })).toBeDisabled();
+  expect(state.mutations).toEqual([]);
+  await page.clock.fastForward(60_000);
   expect(state.queries.length).toBe(2);
   await state.release!();
-  await page.getByRole('button', { name: '分帳', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'refresh money share' })).toBeEnabled();
-  await page.getByRole('button', { name: '帳目', exact: true }).click();
+  await expect(page.getByRole('form')).toHaveCount(0);
   await expect(page.getByRole('button', { name: '查看 Dinner', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '查看 Lunch', exact: true })).toHaveCount(0);
+  expect(state.mutations).toEqual(['UpdateRecord']);
   expect(state.queries.length).toBe(2);
 });
 
@@ -182,7 +186,7 @@ test('failed mutation preserves cache; settlement waits for polling; manual retr
   await page.getByRole('button', { name: '分帳', exact: true }).click();
   await expect(page.getByText('帳目計算中，或沒有需要分帳的項目。')).toBeVisible();
   expect(state.queries.length).toBe(1);
-  await page.clock.fastForward(20_000);
+  await page.clock.fastForward(40_000);
   await expect(page.getByRole('button', { name: 'payback', exact: true })).toBeVisible();
   expect(state.queries.length).toBe(2);
   state.failQuery = true;
@@ -213,32 +217,50 @@ test('failed history loading keeps observing mutations in the current cache', as
   expect(state.queries).toEqual([false, true, true]);
 });
 
-test('rapid history toggles keep the newest request loading when an old response finishes', async ({ page }) => {
+test('history refresh waits for the active query and keeps foreground loading', async ({ page }) => {
   const state = await fixture(page);
   state.holdNextQuery = true;
-  await page.clock.fastForward(20_000);
+  await page.clock.fastForward(40_000);
   await expect.poll(() => !!state.release).toBe(true);
   const oldResponse = state.release!;
   await history(page, true);
-  await expect.poll(() => state.queries.length).toBe(3);
+  expect(state.queries).toEqual([false, false]);
   await page.getByRole('button', { name: '分帳', exact: true }).click();
   const refresh = page.getByRole('button', { name: 'refresh money share' });
-  await expect(refresh).toBeEnabled();
+  await expect(refresh).toBeDisabled();
+  // A skipped background tick must not clear the queued foreground loading state.
+  await page.clock.fastForward(20_000);
+  await expect(refresh).toBeDisabled();
+  expect(state.queries).toEqual([false, false]);
   state.trip.name = 'Fresh after toggling';
   state.holdNextQuery = true;
   state.release = undefined;
-  await history(page, false);
-  await expect.poll(() => state.queries.length).toBe(4);
+  await oldResponse();
   await expect.poll(() => !!state.release).toBe(true);
   await expect(refresh).toBeDisabled();
-  await oldResponse();
-  // Let Apollo and React process the old response; the newer query is still held.
-  await page.clock.runFor(100);
-  await expect(refresh).toBeDisabled();
+  expect(state.queries).toEqual([false, false, true]);
   await state.release!();
   await expect(refresh).toBeEnabled();
   await expect(page.getByRole('heading', { name: 'Fresh after toggling', exact: true })).toBeVisible();
-  expect(state.queries).toEqual([false, false, true, false]);
+});
+
+test('foreground refresh shares active polling and delays the next background request', async ({ page }) => {
+  const state = await fixture(page);
+  await page.getByRole('button', { name: '分帳', exact: true }).click();
+  const refresh = page.getByRole('button', { name: 'refresh money share' });
+  state.holdNextQuery = true;
+  await refresh.click();
+  await expect.poll(() => !!state.release).toBe(true);
+  await page.clock.fastForward(20_000);
+  expect(state.queries.length).toBe(2);
+  await page.clock.fastForward(1000);
+  await state.release!();
+  await expect(refresh).toBeEnabled();
+  await page.clock.fastForward(19_000);
+  await page.clock.runFor(1);
+  expect(state.queries.length).toBe(2);
+  await page.clock.fastForward(20_000);
+  await expect.poll(() => state.queries.length).toBe(3);
 });
 
 for (const mobile of [false, true]) {
@@ -255,7 +277,7 @@ for (const mobile of [false, true]) {
     expect(state.queries).toEqual([false]);
     state.trip.addresses = [{ ...alice, statistics: { totalExpense: 1234.5, totalPrepaid: 0, activeRecordCount: 0 } }, { ...bob, statistics: null }];
     state.trip.isValid = false;
-    await page.clock.fastForward(20_000);
+    await page.clock.fastForward(40_000);
     await expect(member('Alice')).toContainText('$1,234.50');
     await expect(member('Bob')).toContainText('—');
     await expect(panel.getByRole('status')).toContainText('已略過無效帳目');

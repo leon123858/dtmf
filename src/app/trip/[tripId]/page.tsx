@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { SingleTripProvider } from '@/app/context/SingleTripProvider';
 import { Record } from '@/app/lib/types';
-import { useGraphQLClient } from '@/app/lib/tripApi/client';
+import { useTrip } from '@/app/lib/tripApi/hooks';
 
 import { Header } from '@/app/components/Header';
 import { TabBar, type TripTab } from '@/app/components/Tabbar';
@@ -13,7 +13,7 @@ import { MoneyShare } from '@/app/components/MoneyShare';
 import { AddressList } from '@/app/components/AddressList';
 import { RecordForm } from '@/app/components/RecordForm';
 import { ConfirmModal } from '@/app/components/ConfirmModal';
-import { SaveTripInStorage } from '@/app/lib/storage/trip';
+
 
 export default function TripPage() {
 	const params = useParams();
@@ -25,10 +25,6 @@ type EditableRecord = Record | Omit<Record, 'id' | 'time' | 'isValid'>;
 
 function TripContent({ tripId }: { tripId: string }) {
  const router = useRouter();
-
-	const {
-		queries: { useTrip },
-	} = useGraphQLClient();
 
 	const {
 		data: tripData,
@@ -65,10 +61,7 @@ function TripContent({ tripId }: { tripId: string }) {
 	useEffect(() => {
 		if (tripData && tripData.name && tripId) {
 			document.title = `${tripData.name} | 旅遊分帳`;
-			SaveTripInStorage({
-				id: tripId,
-				name: tripData.name,
-			});
+
 		}
 	}, [tripData, tripId]);
 

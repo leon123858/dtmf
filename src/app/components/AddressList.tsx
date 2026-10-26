@@ -2,14 +2,10 @@
 
 import React, { useState, useContext, useEffect } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
-import { useGraphQLClient } from '../lib/tripApi/client';
+import { useTrip, useCreateAddress, useUpdateAddress, useDeleteAddress } from '@/app/lib/tripApi/hooks';
 import { longStringSimplify } from '../lib/utils';
 
 export const AddressList = () => {
-	const {
-		queries: { useTrip },
-		mutations: { useCreateAddress, useUpdateAddress, useDeleteAddress },
-	} = useGraphQLClient();
 
 	const [newAddress, setNewAddress] = useState('');
 	const [isAdding, setIsAdding] = useState(false);
@@ -22,13 +18,11 @@ export const AddressList = () => {
 	const context = useContext(SingleTripContext);
 	const { data: tripData } = useTrip(context?.tripId || '');
 
-	const [createAddress, { loading: creating }] =
-		useCreateAddress(context?.tripId || '');
-	const [updateAddress, { loading: updating }] = useUpdateAddress(
+	const { execute: createAddress, loading: creating } = useCreateAddress(context?.tripId || '');
+	const { execute: updateAddress, loading: updating } = useUpdateAddress(
 		context?.tripId || ''
 	);
-	const [removeAddress, { loading: removing }] =
-		useDeleteAddress(context?.tripId || '');
+	const { execute: removeAddress, loading: removing } = useDeleteAddress(context?.tripId || '');
 
 	// auto setShowError to false after 3 seconds
 	useEffect(() => {
@@ -45,7 +39,7 @@ export const AddressList = () => {
  const handleAddAddress = async () => {
   if (!newAddress.trim() || creating) return;
   try {
-   await createAddress({ variables: { tripId: context.tripId, input: { name: newAddress.trim() } } });
+   await createAddress({ input: { name: newAddress.trim() } });
    setNewAddress('');
    setIsAdding(false);
   } catch (error) {
@@ -58,11 +52,8 @@ export const AddressList = () => {
 		if (!addressId || removing) return;
 
 		removeAddress({
-			variables: {
-				tripId: context.tripId,
 				addressId,
-			},
-		})
+			})
 			.then(() => {
 				setShowError(false);
 			})
@@ -103,12 +94,9 @@ export const AddressList = () => {
 		}
 
 		updateAddress({
-			variables: {
-				tripId: context.tripId,
 				addressId: editingAddressId,
 				input: { name },
-			},
-		})
+			})
 			.then(() => {
 				setShowError(false);
 				setEditingAddress(current => current?.id === editingAddressId ? null : current);

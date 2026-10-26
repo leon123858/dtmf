@@ -2,15 +2,12 @@
 
 import React, { useState, useContext } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
-import { useGraphQLClient } from '../lib/tripApi/client';
+import { useTrip } from '@/app/lib/tripApi/hooks';
 import { Check, Link } from 'lucide-react';
 import { Message } from './Message';
 import { SideBar } from './SideBar';
 
 export const Header = () => {
-	const {
-		queries: { useTrip },
-	} = useGraphQLClient();
 
 	const [isCopied, setIsCopied] = useState(false);
 	const [isOpen, setIsOpen] = useState(false);

@@ -1,11 +1,10 @@
 'use client';
 
 import React from 'react';
-import { useRouter } from 'next/navigation';
+import { authStore } from '../lib/auth/store';
 import { createTripAction } from '@/app/lib/staticActions/tripActions';
 
 export const TripCreationForm: React.FC = () => {
-	const router = useRouter();
 	const [pending, setPending] = React.useState(false);
 	const submitting = React.useRef(false);
 
@@ -16,11 +15,21 @@ export const TripCreationForm: React.FC = () => {
 		submitting.current = true;
 		setPending(true);
 		try {
-			const result = await createTripAction(formData);
+			const session = authStore.getSession();
+			const token = await authStore.getValidIdToken();
+			if (session !== authStore.getSession()) throw new Error('auth');
+			if (authStore.getSnapshot().status === 'authenticated' && !token) throw new Error('auth');
+			let result = await createTripAction(formData, token ?? undefined);
+			if (result.unauthenticated && token && session === authStore.getSession()) {
+				const refreshed = authStore.getSnapshot().idToken !== token || await authStore.refreshAuthToken();
+				const retryToken = refreshed ? await authStore.getValidIdToken() : null;
+				if (retryToken && session === authStore.getSession()) result = await createTripAction(formData, retryToken);
+			}
 			if (result.error !== undefined) {
 				window.alert(result.error);
 			} else {
-				router.push(`/trip/${result.tripId}`);
+				// Reload so normal member initialization reads the backend-created favorite.
+				window.location.assign(`/trip/${result.tripId}`);
 			}
 		} catch {
 			window.alert('創建新旅程失敗，請稍後再試。');

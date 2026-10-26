@@ -1,0 +1,36 @@
+import { randomUUID } from 'node:crypto';
+import { test, expect } from '@playwright/test';
+test('real member login, automatic favorite on creation, reload and logout', async ({ page }) => {
+	test.skip(process.env.E2E_MEMBER_ENABLED !== '1', 'Real member tests require E2E_MEMBER_ENABLED=1 and complete backend GCIP/account configuration.');
+	await page.goto('/');
+	await page.getByRole('button', { name: '登入', exact: true }).click();
+	await page.getByRole('button', { name: '測試登入', exact: true }).click();
+	await expect(page.getByRole('button', { name: '登出', exact: true })).toBeVisible();
+	let subscribeAttempts = 0;
+	let createActions = 0;
+	page.on('request', request => { if (request.headers()['next-action']) createActions++; });
+	await page.route('**/query', route => {
+		if (route.request().postDataJSON().operationName === 'SubscribeTrip') subscribeAttempts++;
+		return route.continue();
+	});
+	const name = `Member-${randomUUID().slice(0, 8)}`;
+	await page.getByPlaceholder('例如: 2024 日本關西之旅').fill(name);
+	await page.getByRole('button', { name: '開始分帳' }).click();
+	await expect(page).toHaveURL(/\/trip\//);
+	expect(createActions).toBe(1);
+	expect(subscribeAttempts).toBe(0);
+	await page.getByRole('button', { name: 'Open menu' }).click();
+	await expect(page.getByRole('checkbox', { name: '收藏此行程' })).toBeChecked();
+	expect(subscribeAttempts).toBe(0);
+	await page.getByRole('button', { name: '瀏覽歷史', exact: true }).click();
+	await expect(page).toHaveURL(/\/history$/);
+	await page.reload();
+	await page.getByRole('button', { name: '收藏', exact: true }).click();
+	await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
+	await page.getByRole('button', { name, exact: true }).click();
+	await page.getByRole('button', { name: 'Open menu' }).click();
+	await page.getByRole('checkbox', { name: '收藏此行程' }).click();
+	await expect(page.getByRole('checkbox', { name: '收藏此行程' })).not.toBeChecked();
+	await page.getByRole('button', { name: '登出', exact: true }).click();
+	await expect(page.getByRole('checkbox', { name: '收藏此行程' })).toBeDisabled();
+});

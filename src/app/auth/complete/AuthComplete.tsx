@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { authRestClient } from '@/app/lib/auth/authRestClient';
+import { useLoginDialog } from '@/app/context/AuthProvider';
+import { authRestClient } from '@/app/lib/auth/store';
 import { errorMessage } from '@/app/lib/error';
 import { authStore } from '@/app/lib/auth/store';
 
 export function AuthComplete() {
 	const router = useRouter();
+	const openLogin = useLoginDialog();
 	const [error, setError] = useState<string | null>(null);
 	useEffect(() => {
 		let active = true;
@@ -29,13 +31,13 @@ export function AuthComplete() {
 	return (
 		<main className='min-h-dvh flex items-center justify-center bg-slate-50 p-6'>
 			<div className='max-w-md rounded-xl bg-white p-8 shadow space-y-4'>
-				<h1 className='text-xl font-bold'>Google 登入</h1>
+				<h1 className='text-xl font-bold'>登入</h1>
 				{error ? (
 					<>
 						<p role='alert'>{error}</p>
 						<button
 							onClick={() => {
-								authRestClient.loginRedirect('google');
+								openLogin();
 							}}
 							className='rounded-lg bg-blue-600 px-4 py-2 text-white'
 						>

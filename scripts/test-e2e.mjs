@@ -129,10 +129,11 @@ export function createRuntime({ spawnProcess = spawn, killProcess = process.kill
     async frontend() {
       // Never silently test against a frontend with unknown API configuration.
       if (await healthy('http://127.0.0.1:3100')) throw new Error('[E2E] Port 3100 is already serving HTTP. Stop that frontend before running E2E.');
+      const frontendEnv = { ...env, E2E_FRONTEND_ENABLE: 'true', E2E_BUILD_DIR: '.next-e2e', NEXT_PUBLIC_API_HTTP_URL: 'http://127.0.0.1:8080', NEXT_PUBLIC_API_WS_URL: 'ws://127.0.0.1:8080', BACKEND_BASE_URL: 'http://127.0.0.1:8080', ADMIN_KEY: '' };
+      console.log('[E2E] Building isolated production frontend with test login enabled.');
+      if (await execute(process.execPath, [local('../node_modules/next/dist/bin/next'), 'build'], frontendEnv) !== 0) throw new Error('[E2E] Frontend build failed.');
       console.log('[E2E] Starting frontend on port 3100.');
-      const state = start(process.execPath, [local('../node_modules/next/dist/bin/next'), 'dev', '--turbopack', '--hostname', '127.0.0.1', '--port', '3100'], root, {
-        ...process.env, NEXT_PUBLIC_API_HTTP_URL: 'http://127.0.0.1:8080', NEXT_PUBLIC_API_WS_URL: 'ws://127.0.0.1:8080', ADMIN_KEY: '',
-      });
+      const state = start(process.execPath, [local('../node_modules/next/dist/bin/next'), 'start', '--hostname', '127.0.0.1', '--port', '3100'], root, frontendEnv);
       await waitReady(state, 'http://127.0.0.1:3100');
     },
     async backend() {
@@ -147,7 +148,7 @@ export function createRuntime({ spawnProcess = spawn, killProcess = process.kill
         return;
       }
       console.log('[E2E] Starting backend: cd ../dtm && make serve');
-      await waitReady(start('make', ['serve'], backendDirectory), 'http://127.0.0.1:8080/health', true);
+      await waitReady(start('make', ['serve'], backendDirectory, { ...env, FRONTEND_URL: 'http://127.0.0.1:3100' }), 'http://127.0.0.1:8080/health', true);
     },
     async test(suite, args) {
       console.log(`[E2E] Running ${suite}.`);

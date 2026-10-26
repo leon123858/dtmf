@@ -2,7 +2,7 @@
 
 import React, { useContext, useState } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
-import { useGraphQLClient } from '@/app/lib/tripApi/client';
+import { useTrip } from '@/app/lib/tripApi/hooks';
 import { longStringSimplify } from '@/app/lib/utils';
 import { MemberStatistics } from './MemberStatistics';
 import { Address, Record, RecordCategory } from '../lib/tripApi/types';
@@ -12,9 +12,6 @@ interface MoneyShareProps {
 }
 
 export const MoneyShare: React.FC<MoneyShareProps> = ({ onRepay }) => {
-	const {
-		queries: { useTrip },
-	} = useGraphQLClient();
 
 	const [view, setView] = useState<'settlement' | 'statistics'>('settlement');
 	const context = useContext(SingleTripContext);

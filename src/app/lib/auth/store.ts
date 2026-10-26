@@ -1,4 +1,4 @@
-import { authRestClient, type RefreshResponse } from './authRestClient';
+import { httpCall } from '../utils';
 import { errorMessage, MyError } from '../error';
 
 export interface Tokens {
@@ -19,6 +19,7 @@ export interface AuthState {
 	status: 'anonymous' | 'exchanging' | 'authenticated';
 	refreshing: boolean;
 	error: string | null;
+	storageWarning?: string;
 }
 
 export interface AuthStoreOptions {
@@ -27,7 +28,10 @@ export interface AuthStoreOptions {
 		callRefreshJWT: (refreshToken: string) => Promise<unknown>;
 	};
 	now?: () => number;
-	schedule?: (callback: () => void, delay: number) => ReturnType<typeof setTimeout>;
+	schedule?: (
+		callback: () => void,
+		delay: number
+	) => ReturnType<typeof setTimeout>;
 	cancel?: (timer: ReturnType<typeof setTimeout>) => void;
 }
 
@@ -40,6 +44,7 @@ export class AuthStore {
 		refreshing: false,
 		error: null,
 	};
+	private restored = false;
 	private listeners = new Set<() => void>();
 
 	// state
@@ -106,6 +111,7 @@ export class AuthStore {
 			refreshing: false,
 			error: null,
 		});
+		this.persist();
 		this.setTimer(
 			() => {
 				void this.refreshAuthToken();
@@ -118,12 +124,96 @@ export class AuthStore {
 		this.listeners.forEach((fn) => fn());
 	};
 
+	private persist() {
+		if (typeof window === 'undefined') return;
+		try {
+			if (this.state.idToken)
+				window.localStorage.setItem(
+					'dtmf:auth',
+					JSON.stringify({
+						version: 1,
+						idToken: this.state.idToken,
+						refreshToken: this.state.refreshToken,
+						expiresAt: this.state.expiresAt,
+					})
+				);
+			else window.localStorage.removeItem('dtmf:auth');
+		} catch {
+			this.broadcast({
+				storageWarning: '無法使用本機儲存，登入僅保留於此分頁。',
+			});
+		}
+	}
+
 	// static
 	static getInitState() {
 		return AuthStore.initState;
 	}
 
-	// public
+	restore = () => {
+		if (this.restored || typeof window === 'undefined') return;
+		this.restored = true;
+		try {
+			const raw = window.localStorage.getItem('dtmf:auth');
+			if (!raw) return;
+			const value = JSON.parse(raw);
+			if (
+				value.version !== 1 ||
+				typeof value.idToken !== 'string' ||
+				!value.idToken ||
+				typeof value.refreshToken !== 'string' ||
+				!value.refreshToken ||
+				!Number.isFinite(value.expiresAt) ||
+				value.expiresAt <= 0
+			) {
+				window.localStorage.removeItem('dtmf:auth');
+				return;
+			}
+			this.refreshAt = value.expiresAt - 60000;
+			this.broadcast({
+				idToken: value.idToken,
+				refreshToken: value.refreshToken,
+				expiresAt: value.expiresAt,
+				status: 'authenticated',
+			});
+			if (this.refreshAt <= this.getNowDate()) void this.refreshAuthToken();
+			else
+				this.setTimer(
+					() => {
+						void this.refreshAuthToken();
+					},
+					Math.min(2147483647, this.refreshAt - this.getNowDate())
+				);
+		} catch (error) {
+			if (error instanceof SyntaxError) {
+				this.persist();
+				return;
+			}
+			this.broadcast({
+				storageWarning: '無法使用本機儲存，登入僅保留於此分頁。',
+			});
+		}
+	};
+
+	getSession = () => this.generation;
+
+	loginWith = async (request: () => Promise<unknown>) => {
+		this.logout();
+		const generation = this.generation;
+		this.broadcast({ status: 'exchanging' });
+		try {
+			const tokens = await request();
+			if (generation !== this.generation) return;
+			this.acceptTokens(tokens);
+		} catch {
+			if (generation === this.generation)
+				this.broadcast({
+					status: 'anonymous',
+					error: '登入失敗，請稍後再試。',
+				});
+		}
+	};
+
 	subscribe = (fn: () => void) => {
 		this.listeners.add(fn);
 		return () => {
@@ -137,7 +227,9 @@ export class AuthStore {
 
 		this.clearTimer();
 		this.broadcast(AuthStore.initState);
+		this.persist();
 	};
+
 	refreshAuthToken = (): Promise<boolean> => {
 		if (this.refreshReqLock) return this.refreshReqLock;
 		if (!this.state.refreshToken) return Promise.resolve(false);
@@ -179,6 +271,7 @@ export class AuthStore {
 			});
 		return this.refreshReqLock;
 	};
+
 	getAuthToken = (code: string): Promise<LoginResult | null> => {
 		if (this.getTokenReqLock) return this.getTokenReqLock;
 		this.logout();
@@ -213,9 +306,11 @@ export class AuthStore {
 		// 反正 OAuth 每次獲取一次性 token 都會透過 redirect，所以前端多次調用都可以給同一個
 		return this.getTokenReqLock;
 	};
+
 	getSnapshot = () => {
 		return this.state;
 	};
+
 	checkRefresh = () => {
 		if (
 			this.state.refreshToken &&
@@ -225,6 +320,7 @@ export class AuthStore {
 			return this.refreshAuthToken();
 		return Promise.resolve(null);
 	};
+
 	getValidIdToken = async () => {
 		if (
 			this.state.refreshToken &&
@@ -236,4 +332,91 @@ export class AuthStore {
 	};
 }
 
+export const AuthBaseURL = '/backend/auth';
+export type loginProvider = 'google' | 'github';
+export type RefreshResponse = Tokens;
+export type AuthApiErrResponse = { error: string };
+
+class AuthRestClient {
+	static callback: { code: string | null; error: string | null } | undefined;
+
+	callExchangeJWT = async (exchangeCode: string) => {
+		const ret = await httpCall(`${AuthBaseURL}/exchange`, {
+			code: exchangeCode,
+		});
+		if (!ret || typeof ret !== 'object' || Array.isArray(ret))
+			throw new MyError('internal_error');
+
+		ret.returnTo = safeReturnPath(ret.returnTo, window.location.origin);
+		return ret;
+	};
+
+	callRefreshJWT = async (refreshToken: string) => {
+		const ret = (await httpCall(`${AuthBaseURL}/refresh`, {
+			refreshToken,
+		})) as RefreshResponse;
+
+		return ret;
+	};
+
+	passwordLogin = () => httpCall(`${AuthBaseURL}/password`);
+
+	loginRedirect(provider: loginProvider) {
+		const returnTo = safeReturnPath(
+			window.location.pathname + window.location.search + window.location.hash,
+			window.location.origin
+		);
+		const query = new URLSearchParams({ returnTo });
+		window.location.assign(`${AuthBaseURL}/${provider}?${query.toString()}`);
+	}
+
+	readLoginOAuthCallback() {
+		if (!AuthRestClient.callback) {
+			// 每次登入的 redirect 確保 callback 會被初始化，所以這是避免二次更新的方案
+			const params = new URLSearchParams(window.location.search);
+			AuthRestClient.callback = {
+				code: params.get('code'),
+				error: params.has('error')
+					? params.get('error') || 'internal_error'
+					: null,
+			};
+			window.history.replaceState(
+				window.history.state,
+				'',
+				window.location.pathname
+			);
+		}
+		return AuthRestClient.callback;
+	}
+}
+
+function safeReturnPath(value: unknown, origin: string): string {
+	if (
+		typeof value !== 'string' ||
+		new TextEncoder().encode(value).length > 4096 ||
+		!value.startsWith('/') ||
+		value.startsWith('//') ||
+		/[\\\u0000-\u001f\u007f]/.test(value)
+	)
+		return '/';
+	try {
+		const url = new URL(value, origin);
+		const allowedPage =
+			url.pathname === '/' ||
+			url.pathname === '/history' ||
+			/^\/trip\/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
+				url.pathname
+			);
+		// Only return to application pages, never auth/API routes or normalized traversal paths.
+		return url.origin === origin &&
+			allowedPage &&
+			value.split(/[?#]/, 1)[0] === url.pathname
+			? url.pathname + url.search + url.hash
+			: '/';
+	} catch {
+		return '/';
+	}
+}
+
+export const authRestClient = new AuthRestClient();
 export const authStore = new AuthStore();

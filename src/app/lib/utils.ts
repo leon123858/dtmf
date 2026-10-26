@@ -12,7 +12,7 @@ export function longStringSimplify(
 
 export async function httpCall(
 	url: string,
-	body: Record<string, string>,
+	body?: Record<string, string>,
 	timeout_ms: number = 30000
 ) {
 	const controller = new AbortController();

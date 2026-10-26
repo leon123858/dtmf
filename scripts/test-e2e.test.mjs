@@ -151,3 +151,27 @@ test('rejects invalid backend timeouts before installing signal handlers', () =>
   }
   assert.equal(process.listenerCount('SIGINT'), before);
 });
+
+test('frontend builds isolated test-enabled production assets before starting on 3100', async () => {
+  const starts = [];
+  let requests = 0;
+  const runtime = createRuntime({ env: {},
+    spawnProcess(command, args, options) {
+      starts.push({ command, args, options });
+      const child = Object.assign(new EventEmitter(), { pid: 12345 });
+      if (args.includes('build')) queueMicrotask(() => child.emit('exit', 0));
+      return child;
+    },
+    killProcess() {},
+    request: async () => ({ ok: requests++ > 0 }),
+  });
+  try { await runtime.frontend(); } finally { await runtime.cleanup(); }
+  assert.equal(starts.length, 2);
+  assert.equal(starts[0].args[1], 'build');
+  assert.equal(starts[1].args[1], 'start');
+  assert.equal(starts[1].args.at(-1), '3100');
+  for (const start of starts) {
+    assert.equal(start.options.env.E2E_FRONTEND_ENABLE, 'true');
+    assert.equal(start.options.env.E2E_BUILD_DIR, '.next-e2e');
+  }
+});

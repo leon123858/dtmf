@@ -45,3 +45,5 @@ next-env.d.ts
 
 /playwright-report/
 /ci-artifacts/
+
+/.next-e2e/

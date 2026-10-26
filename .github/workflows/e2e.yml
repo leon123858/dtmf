@@ -4,6 +4,15 @@ on:
   pull_request:
   workflow_dispatch:
   workflow_call:
+    secrets:
+      GCIP_PROJECT_ID:
+        required: false
+      GCIP_API_KEY:
+        required: false
+      E2E_AUTH_EMAIL:
+        required: false
+      E2E_AUTH_PASSWORD:
+        required: false
 
 permissions:
   contents: read
@@ -20,10 +29,33 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Start memory backend in Go container
+        id: backend
+        env:
+          GCIP_PROJECT_ID: ${{ secrets.GCIP_PROJECT_ID }}
+          GCIP_API_KEY: ${{ secrets.GCIP_API_KEY }}
+          E2E_AUTH_EMAIL: ${{ secrets.E2E_AUTH_EMAIL }}
+          E2E_AUTH_PASSWORD: ${{ secrets.E2E_AUTH_PASSWORD }}
+          FRONTEND_URL: http://127.0.0.1:3100
+          OAUTH_REDIRECT_PATH: /backend/auth/callback
         run: |
+          if [ -n "$GCIP_PROJECT_ID" ] && [ -n "$GCIP_API_KEY" ] && [ -n "$E2E_AUTH_EMAIL" ] && [ -n "$E2E_AUTH_PASSWORD" ]; then
+            export E2E_AUTH_ENABLED=true
+            echo "member_enabled=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "Real member tests skipped: complete GCIP and E2E account secrets are required."
+            export E2E_AUTH_ENABLED=false
+            echo "member_enabled=0" >> "$GITHUB_OUTPUT"
+          fi
+          # Anonymous tests still need syntactically valid backend auth configuration.
+          export GCIP_PROJECT_ID="${GCIP_PROJECT_ID:-anonymous-e2e}"
+          export GCIP_API_KEY="${GCIP_API_KEY:-anonymous-e2e}"
           mkdir -p ci-artifacts
           docker run --detach --name "$BACKEND_CONTAINER" \
             --publish 127.0.0.1:8080:8080 \
+            --env GCIP_PROJECT_ID \
+            --env GCIP_API_KEY \
+            --env E2E_AUTH_ENABLED --env E2E_AUTH_EMAIL --env E2E_AUTH_PASSWORD \
+            --env FRONTEND_URL --env OAUTH_REDIRECT_PATH \
             golang:1.25-bookworm sh -ec '
               git clone --depth 1 https://github.com/leon123858/dtm /tmp/dtm
               cd /tmp/dtm
@@ -33,11 +65,15 @@ jobs:
             '
 
       - name: Run runner unit tests and browser E2E
+        env:
+          E2E_MEMBER_ENABLED: ${{ steps.backend.outputs.member_enabled }}
+          E2E_EXTERNAL_BACKEND: '1'
+          E2E_BACKEND_TIMEOUT_MS: '300000'
         run: |
           docker run --name "$TEST_CONTAINER" --init --network host --ipc host \
             --volume "$GITHUB_WORKSPACE:/work" --workdir /work \
-            --env CI=true --env E2E_EXTERNAL_BACKEND=1 \
-            --env E2E_BACKEND_TIMEOUT_MS=300000 --env PLAYWRIGHT_VERSION \
+            --env CI=true --env E2E_EXTERNAL_BACKEND --env E2E_MEMBER_ENABLED \
+            --env E2E_BACKEND_TIMEOUT_MS --env PLAYWRIGHT_VERSION \
             "mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-noble" bash -ec '
               npm install --global yarn@1.22.22 --force
               yarn install --frozen-lockfile

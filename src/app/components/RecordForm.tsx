@@ -2,7 +2,7 @@
 
 import React, { useState, useContext, useEffect } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
-import { useGraphQLClient } from '@/app/lib/tripApi/client';
+import { useTrip, useCreateRecord, useUpdateRecord } from '@/app/lib/tripApi/hooks';
 import { longStringSimplify } from '@/app/lib/utils';
 import { NewRecordInput, RecordCategory, ID } from '../lib/tripApi/types';
 import { Decimal } from 'decimal.js';
@@ -118,10 +118,6 @@ export const RecordForm: React.FC<RecordFormProps> = ({
 	onCancel, onSuccess, onDirty, onBusyChange,
 	record,
 }) => {
-	const {
-		queries: { useTrip },
-		mutations: { useCreateRecord, useUpdateRecord },
-	} = useGraphQLClient();
 
 	const context = useContext(SingleTripContext);
 	const isSubmittingRef = React.useRef(false);
@@ -164,8 +160,8 @@ export const RecordForm: React.FC<RecordFormProps> = ({
 	);
 
  const [oldRecordData] = useState(() => record?.id ? recordToInput(record as Record) : null);
- const [updateRecord] = useUpdateRecord(context?.tripId || '');
- const [createRecord] = useCreateRecord(context?.tripId || '');
+ const { execute: updateRecord } = useUpdateRecord(context?.tripId || '');
+ const { execute: createRecord } = useCreateRecord(context?.tripId || '');
  const selectedSplit = Object.fromEntries(shouldPayAddress.map(id => [id, customSplit[id] ?? 0]));
 
 	useEffect(() => {
@@ -290,14 +286,12 @@ export const RecordForm: React.FC<RecordFormProps> = ({
 		if (record?.id && oldRecordData) {
 			// Editing existing record
 			updateRecord({
-				variables: {
 					recordId: record.id,
 					input: {
 						old: oldRecordData,
 						new: newRecordData,
 					},
-				},
-			})
+				})
 				.then(() => onSuccess())
 				.catch((error) => {
 					console.error('Error updating record:', error);
@@ -317,11 +311,8 @@ export const RecordForm: React.FC<RecordFormProps> = ({
 		} else {
 			// Creating new record
 			createRecord({
-				variables: {
-					tripId: tripData.id,
 					input: newRecordData,
-				},
-			})
+				})
 				.then(() => onSuccess())
 				.catch((error) => {
 					console.error('Error creating record:', error);

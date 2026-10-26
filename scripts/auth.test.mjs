@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import vm from 'node:vm';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
 import ts from 'typescript';
-function loadModules(globals = {}) {
+function loadModules(globals = {}, overrides = {}) {
 	const modules = new Map();
 	const context = vm.createContext({
-		URL, URLSearchParams, setTimeout, clearTimeout, AbortController, TypeError,
+		URL, URLSearchParams, TextEncoder, setTimeout, clearTimeout, AbortController, TypeError,
 		fetch: () => assert.fail('unexpected network request'), ...globals,
 	});
 	function load(url) {
@@ -18,7 +20,8 @@ function loadModules(globals = {}) {
 		}).outputText;
 		vm.runInContext('(function(exports, require) {' + compiled + '\n})', context)(
 			exports, id => {
-				assert.ok(id.startsWith('.'), 'only local dependencies expected');
+				if (Object.hasOwn(overrides, id)) return overrides[id];
+				if (!id.startsWith('.')) return require(id);
 				return load(new URL(id + '.ts', url));
 			}
 		);
@@ -157,6 +160,7 @@ test('temporary failures suspend automatic refresh, preserve refresh token and a
 	for (const error of [
 		new Error('private upstream details'),
 		new MyError('upstream_error', 502),
+		new MyError('upstream_error', 503),
 		new MyError('upstream_timeout', 504),
 	]) {
 		let fail = true,
@@ -235,13 +239,13 @@ test('return path rejects external, ambiguous and callback URLs', async () => {
 	])
 		assert.equal((await exchangeWithReturnTo(path)).returnTo, '/');
 	assert.equal(
-		(await exchangeWithReturnTo('/trip/demo?q=1#tab')).returnTo,
-		'/trip/demo?q=1#tab'
+		(await exchangeWithReturnTo('/trip/550e8400-e29b-41d4-a716-446655440000?q=1#tab')).returnTo,
+		'/trip/550e8400-e29b-41d4-a716-446655440000?q=1#tab'
 	);
 });
 
 test('exchange carries its own returnTo through shared completion; refresh needs no returnTo', async () => {
-	const expected = '/trip/demo?tab=records#details';
+	const expected = '/trip/550e8400-e29b-41d4-a716-446655440000?tab=records#details';
 	const { store } = setup(async (path) =>
 		path === 'exchange'
 			? { ...tokens(), returnTo: expected }
@@ -275,7 +279,7 @@ test('missing or malformed returnTo does not prevent login and falls back safely
 test('login encodes pathname, query and hash in returnTo without browser storage', () => {
 	let destination;
 	const location = {
-		pathname: '/trip/demo',
+		pathname: '/trip/550e8400-e29b-41d4-a716-446655440000',
 		search: '?q=a%26b',
 		hash: '#details',
 		origin: 'http://localhost:3000',
@@ -289,13 +293,13 @@ test('login encodes pathname, query and hash in returnTo without browser storage
 			assert.fail('auth must not use sessionStorage');
 		},
 	};
-	const { authRestClient } = loadModules({ window })('auth/authRestClient');
+	const { authRestClient } = loadModules({ window })('auth/store');
 	authRestClient.loginRedirect('google');
 	const loginURL = new URL(destination, location.origin);
 	assert.equal(loginURL.pathname, '/backend/auth/google');
 	assert.equal(
 		loginURL.searchParams.get('returnTo'),
-		'/trip/demo?q=a%26b#details'
+		'/trip/550e8400-e29b-41d4-a716-446655440000?q=a%26b#details'
 	);
 	location.pathname = '/auth/complete';
 	location.search = '?code=must-not-forward';
@@ -312,7 +316,7 @@ async function exchangeWithReturnTo(returnTo) {
 	const { authRestClient } = loadModules({
 		window: { location: { origin: 'http://localhost:3000' } },
 		fetch: async () => ({ ok: true, json: async () => ({ ...tokens(), returnTo }) }),
-	})('auth/authRestClient');
+	})('auth/store');
 	return authRestClient.callExchangeJWT('mock');
 }
 
@@ -393,7 +397,7 @@ test('REST client uses refresh endpoint and preserves request options', async ()
 			assert.deepEqual(JSON.parse(options.body), { refreshToken: 'refresh-1' });
 			return { ok: true, json: async () => tokens('2') };
 		},
-	})('auth/authRestClient');
+	})('auth/store');
 	assert.equal((await authRestClient.callRefreshJWT('refresh-1')).idToken, 'id-2');
 });
 
@@ -402,7 +406,7 @@ test('REST client rejects malformed exchange bodies before accessing returnTo', 
 		const modules = loadModules({
 			fetch: async () => ({ ok: true, json: async () => body }),
 		});
-		const { authRestClient } = modules('auth/authRestClient');
+		const { authRestClient } = modules('auth/store');
 		const { MyError } = modules('error');
 		await assert.rejects(authRestClient.callExchangeJWT('mock'), error =>
 			error instanceof MyError && error.code === 'internal_error');
@@ -445,9 +449,279 @@ test('OAuth callback is captured once and removed from browser history', () => {
 				location.search = '';
 			} },
 		},
-	})('auth/authRestClient');
+	})('auth/store');
 	const callback = authRestClient.readLoginOAuthCallback();
 	assert.equal(callback.code, 'single-use');
 	assert.equal(authRestClient.readLoginOAuthCallback(), callback);
 	assert.equal(replacements, 1);
+});
+
+test('versioned persistence restores absolute expiry and removes credentials on logout', async () => {
+	const values = new Map();
+	const window = { localStorage: { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) } };
+	const { AuthStore } = loadModules({ window })('auth/store');
+	const options = { now: () => 1000, schedule: () => 1, cancel() {}, client: { callExchangeJWT: async () => tokens(), callRefreshJWT: async () => tokens('rotated') } };
+	const first = new AuthStore(options);
+	await first.getAuthToken('one');
+	const persisted = JSON.parse(values.get('dtmf:auth'));
+	assert.equal(persisted.version, 1);
+	assert.equal(persisted.expiresAt, 181000);
+	const restored = new AuthStore(options);
+	restored.restore();
+	assert.equal(restored.getSnapshot().idToken, 'id-1');
+	assert.equal(restored.getSnapshot().expiresAt, 181000);
+	await restored.refreshAuthToken();
+	assert.equal(JSON.parse(values.get('dtmf:auth')).refreshToken, 'refresh-rotated');
+	restored.logout();
+	assert.equal(values.has('dtmf:auth'), false);
+});
+
+test('broken persistence is anonymous and blocked storage uses memory with notice', async () => {
+	for (const raw of ['{', '{}', '{"version":9}', '{"version":1,"idToken":"a","refreshToken":"b","expiresAt":"bad"}']) {
+		const { AuthStore } = loadModules({ window: { localStorage: { getItem: () => raw, removeItem() {} } } })('auth/store');
+		const store = new AuthStore(); store.restore();
+		assert.equal(store.getSnapshot().status, 'anonymous');
+	}
+	const { AuthStore } = loadModules({ window: { get localStorage() { throw new Error('blocked'); } } })('auth/store');
+	const store = new AuthStore({ schedule: () => 1, cancel() {}, client: { callExchangeJWT: async () => tokens(), callRefreshJWT: async () => tokens() } });
+	store.restore(); await store.getAuthToken('one');
+	assert.equal(store.getSnapshot().status, 'authenticated');
+	assert.ok(store.getSnapshot().storageWarning);
+});
+
+test('history merges by id, uses account names and newer times without account limit', () => {
+	const { mergeHistory } = load('storage/trip');
+	const saved = Array.from({ length: 25 }, (_, i) => ({ id: String(i), name: `account-${i}`, lastViewedAt: String(i + 10) }));
+	const result = mergeHistory([{ id: '0', name: 'local', timestamp: 100 }], saved);
+	assert.equal(result.length, 25);
+	assert.equal(result[0].id, '0');
+	assert.equal(result[0].name, 'account-0');
+	assert.equal(result[0].timestamp, 100);
+	assert.equal(result[0].local, true);
+	assert.equal(result[0].saved, true);
+	assert.equal(result[1].id, '24');
+});
+
+test('HTTP concurrent 401 responses share refresh and retry once with rotated token', async () => {
+	let refreshes = 0, requests = 0;
+	const modules = loadModules({ window: { localStorage: { removeItem() {}, setItem() {}, getItem() { return null; } } }, Headers,
+		fetch: async (_url, init) => {
+			requests++;
+			return { status: init.headers.get('Authorization') === 'Bearer id-1' ? 401 : 200 };
+		} });
+	const { authStore } = modules('auth/store');
+	await authStore.loginWith(async () => tokens());
+	const { authRestClient } = modules('auth/store');
+	authRestClient.callRefreshJWT = async () => { refreshes++; await Promise.resolve(); return tokens('2'); };
+	const { authenticatedFetch } = modules('auth/fetch');
+	const results = await Promise.all([authenticatedFetch('/query'), authenticatedFetch('/query')]);
+	assert.equal(refreshes, 1);
+	assert.equal(requests, 4);
+	assert.ok(results.every(response => response.status === 200));
+	authStore.logout();
+});
+
+test('user API owns id-only cache updates and exposes domain snapshots', async () => {
+ const { ApolloClient, ApolloLink, InMemoryCache, Observable } = require('@apollo/client');
+ const modules = loadModules();
+ const { UserApi } = modules('userApi/client');
+ const { CURRENT_USER } = modules('userApi/query');
+ const { clearCurrentUser, userTypePolicies } = modules('userApi/cache');
+ const calls = [];
+ const client = new ApolloClient({ cache: new InMemoryCache({ typePolicies: userTypePolicies }),
+  link: new ApolloLink(operation => new Observable(observer => {
+   calls.push(operation.operationName);
+   if (operation.operationName !== 'CurrentUser') {
+    const selection = operation.query.definitions.find(def => def.kind === 'OperationDefinition').selectionSet.selections[0].selectionSet.selections;
+    assert.deepEqual(selection.map(field => field.name.value).filter(name => name !== '__typename'), ['id']);
+   }
+   const field = operation.operationName === 'CurrentUser' ? 'me' : operation.operationName[0].toLowerCase() + operation.operationName.slice(1);
+   observer.next({ data: { [field]: { __typename: 'User', id: 'user', ...(operation.operationName === 'CurrentUser' ? { subscribedTrips: [{ __typename: 'SubscribedTrip', id: operation.variables.tripId || 'initial', name: 'trip', lastViewedAt: '1' }] } : {}) } } });
+   observer.complete();
+  })) });
+ const api = new UserApi(client, () => true);
+ await api.initialize();
+ assert.equal(client.readQuery({ query: CURRENT_USER }).me.subscribedTrips.length, 1);
+ await api.subscribeTrip({ tripId: 'next', name: 'new trip', lastViewedAt: '2' });
+ assert.equal(api.getSnapshot().subscribedTrips[0].id, 'initial');
+ assert.equal(client.readQuery({ query: CURRENT_USER }).me.subscribedTrips[1].id, 'next');
+ await api.unsubscribeTrip('next');
+ assert.equal(client.readQuery({ query: CURRENT_USER }).me.subscribedTrips.length, 1);
+ await api.touchSubscribedTrip({ tripId: 'next', lastViewedAt: '3' });
+ assert.deepEqual(calls, ['CurrentUser', 'SubscribeTrip', 'UnsubscribeTrip', 'TouchSubscribedTrip']);
+ clearCurrentUser(client.cache);
+ assert.equal(client.readQuery({ query: CURRENT_USER }), null);
+ client.stop();
+});
+
+test('user API rejects GraphQL failures and missing users without changing cache', async () => {
+ const { ApolloClient, ApolloLink, InMemoryCache, Observable } = require('@apollo/client');
+ const modules = loadModules();
+ const { UserApi } = modules('userApi/client');
+ const { CURRENT_USER } = modules('userApi/query');
+ for (const payload of [{ errors: [{ message: 'denied' }] }, { data: { me: null, subscribeTrip: null } }, { data: { me: null, subscribeTrip: {} } }]) {
+  const client = new ApolloClient({ cache: new InMemoryCache(), link: new ApolloLink(() => new Observable(observer => {
+   observer.next(payload); observer.complete();
+  })) });
+  const api = new UserApi(client, () => true);
+  await assert.rejects(api.initialize());
+  await assert.rejects(api.subscribeTrip({ tripId: 'trip', name: 'Trip', lastViewedAt: '1' }));
+  assert.equal(client.readQuery({ query: CURRENT_USER }), null);
+  client.stop();
+ }
+});
+
+test('test-login build flag defaults off and accepts only exact true', () => {
+	const source = readFileSync(new URL('../next.config.ts', import.meta.url), 'utf8');
+	const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
+	for (const value of [undefined, '', 'false', '1', 'TRUE', 'true']) {
+		const exports = {};
+		vm.runInNewContext(code, { exports, process: { env: { E2E_FRONTEND_ENABLE: value } } });
+		assert.equal(exports.default.env.E2E_FRONTEND_ENABLE, value === 'true' ? 'true' : 'false');
+		assert.equal(exports.default.distDir, '.next');
+	}
+});
+
+
+test('user changes preserve unrelated fields and require initialized matching users', () => {
+ const { InMemoryCache } = require('@apollo/client');
+ const modules = loadModules();
+ const { applyUserChange, updateUserCache, writeCurrentUser } = modules('userApi/cache');
+ const { CURRENT_USER } = modules('userApi/query');
+ const original = { __typename: 'User', id: 'user', subscribedTrips: [{ __typename: 'SubscribedTrip', id: 'a', name: 'old', lastViewedAt: '1' }] };
+ const change = { userId: 'user', tripId: 'b', type: 'subscribe', name: 'new', lastViewedAt: '2' };
+ const added = applyUserChange(original, change);
+ assert.deepEqual(original.subscribedTrips[0], added.subscribedTrips[0]);
+ assert.equal(added.subscribedTrips[1].__typename, 'SubscribedTrip');
+ const resubscribed = applyUserChange(added, { ...change, name: 'latest', lastViewedAt: '3' });
+ assert.equal(resubscribed.subscribedTrips.length, 2);
+ assert.equal(resubscribed.subscribedTrips[1].name, 'latest');
+ assert.equal(resubscribed.subscribedTrips[1].lastViewedAt, '3');
+ assert.equal(applyUserChange(original, { ...change, type: 'touch' }).subscribedTrips.length, 1);
+ assert.equal(JSON.stringify(applyUserChange(original, { ...change, type: 'unsubscribe' })), JSON.stringify(original));
+ const renamed = applyUserChange(original, { ...change, type: 'rename', tripId: 'a' });
+ assert.equal(renamed.subscribedTrips[0].name, 'new');
+ assert.equal(renamed.subscribedTrips[0].lastViewedAt, '1');
+ const touched = applyUserChange(original, { ...change, type: 'touch', tripId: 'a' });
+ assert.equal(touched.subscribedTrips[0].name, 'old');
+ assert.equal(touched.subscribedTrips[0].lastViewedAt, '2');
+ assert.equal(applyUserChange(added, { ...change, type: 'unsubscribe' }).subscribedTrips.length, 1);
+ assert.strictEqual(applyUserChange(original, { ...change, userId: 'other' }), original);
+ const cache = new InMemoryCache();
+ updateUserCache(cache, change);
+ assert.equal(cache.readQuery({ query: CURRENT_USER }), null);
+ writeCurrentUser(cache, original);
+ updateUserCache(cache, { ...change, userId: 'other' });
+ assert.equal(cache.readQuery({ query: CURRENT_USER }).me.subscribedTrips.length, 1);
+});
+
+
+test('user API observations are cache-only, stable, and detachable', async () => {
+ const { ApolloClient, ApolloLink, InMemoryCache, Observable } = require('@apollo/client');
+ const modules = loadModules();
+ const { UserApi } = modules('userApi/client');
+ const { userTypePolicies } = modules('userApi/cache');
+ let queries = 0;
+ const client = new ApolloClient({ cache: new InMemoryCache({ typePolicies: userTypePolicies }), link: new ApolloLink(operation => new Observable(observer => {
+  queries++;
+  observer.next({ data: { me: { __typename: 'User', id: 'user', subscribedTrips: [{ __typename: 'SubscribedTrip', id: 'trip', name: 'old', lastViewedAt: '1' }] } } });
+  observer.complete();
+ })) });
+ const api = new UserApi(client, () => true);
+ let notifications = 0;
+ const stop = api.subscribe(() => notifications++);
+ assert.equal(queries, 0);
+ api.renameTrip('trip', 'latest');
+ await api.initialize();
+ assert.equal(api.getSnapshot().subscribedTrips[0].name, 'latest');
+ assert.equal(api.getSnapshot(), api.getSnapshot());
+ assert.ok(notifications > 0);
+ stop();
+ const before = notifications;
+ api.renameTrip('trip', 'newer');
+ assert.equal(notifications, before);
+ assert.equal(queries, 1);
+ assert.equal(api.getSnapshot().subscribedTrips[0].lastViewedAt, '1');
+ client.stop();
+});
+
+test('user API ignores disposed initialization and rejects mismatched mutation identities', async () => {
+ const { ApolloClient, ApolloLink, InMemoryCache, Observable } = require('@apollo/client');
+ const modules = loadModules();
+ const { UserApi } = modules('userApi/client');
+ const { writeCurrentUser, userTypePolicies } = modules('userApi/cache');
+ let respond;
+ const client = new ApolloClient({ cache: new InMemoryCache({ typePolicies: userTypePolicies }), link: new ApolloLink(operation => new Observable(observer => {
+  respond = () => {
+   const field = operation.operationName === 'CurrentUser' ? 'me' : 'subscribeTrip';
+   observer.next({ data: { [field]: { __typename: 'User', id: 'other', subscribedTrips: [] } } });
+   observer.complete();
+  };
+ })) });
+ const api = new UserApi(client, () => true);
+ const initialization = api.initialize();
+ api.dispose();
+ respond();
+ await assert.rejects(initialization, error => error.code === 'session-changed');
+ assert.equal(api.getSnapshot(), null);
+ const next = new UserApi(client, () => true);
+ writeCurrentUser(client.cache, { __typename: 'User', id: 'current', subscribedTrips: [] });
+ const pending = next.subscribeTrip({ tripId: 'trip', name: 'trip', lastViewedAt: '1' });
+ respond();
+ await assert.rejects(pending, error => error.code === 'user-mismatch');
+ assert.equal(next.getSnapshot().subscribedTrips.length, 0);
+ client.stop();
+});
+
+test('user API preserves newer names and ignores a mutation completed after disposal', async () => {
+ const { ApolloClient, ApolloLink, InMemoryCache, Observable } = require('@apollo/client');
+ const modules = loadModules();
+ const { UserApi } = modules('userApi/client');
+ const { writeCurrentUser, userTypePolicies } = modules('userApi/cache');
+ let respond;
+ const client = new ApolloClient({ cache: new InMemoryCache({ typePolicies: userTypePolicies }), link: new ApolloLink(() => new Observable(observer => {
+  respond = () => { observer.next({ data: { subscribeTrip: { __typename: 'User', id: 'user' } } }); observer.complete(); };
+ })) });
+ writeCurrentUser(client.cache, { __typename: 'User', id: 'user', subscribedTrips: [] });
+ const api = new UserApi(client, () => true);
+ const first = api.subscribeTrip({ tripId: 'trip', name: 'old', lastViewedAt: '1' });
+ api.renameTrip('trip', 'latest');
+ respond();
+ await first;
+ assert.equal(api.getSnapshot().subscribedTrips[0].name, 'latest');
+ const second = api.subscribeTrip({ tripId: 'late', name: 'late', lastViewedAt: '2' });
+ api.dispose();
+ respond();
+ await assert.rejects(second, error => error.code === 'session-changed');
+ assert.equal(api.getSnapshot().subscribedTrips.length, 1);
+ client.stop();
+});
+
+
+test('server trip APIs isolate caller tokens, stop request clients, and translate 401', async () => {
+ const { ApolloClient, ApolloLink, InMemoryCache, Observable } = require('@apollo/client');
+ const calls = [];
+ let stopped = 0;
+ const modules = loadModules({}, {
+  '../graphClient/http': { createHttpClient: token => {
+   const client = new ApolloClient({ cache: new InMemoryCache(), link: new ApolloLink(operation => new Observable(observer => {
+    calls.push({ token, name: operation.variables.input.name });
+    if (token === 'expired') observer.error(Object.assign(new Error('unauthorized'), { statusCode: 401 }));
+    else { observer.next({ data: { createTrip: { id: token ?? 'anonymous' } } }); observer.complete(); }
+   })) });
+   const stop = client.stop.bind(client);
+   client.stop = () => { stopped++; stop(); };
+   return client;
+  } },
+ });
+ const { createServerTripApi } = modules('tripApi/http');
+ const results = await Promise.all([
+  createServerTripApi('first').createTrip({ name: 'one' }),
+  createServerTripApi('second').createTrip({ name: 'two' }),
+  createServerTripApi().createTrip({ name: 'anon' }),
+ ]);
+ assert.equal(JSON.stringify(results), JSON.stringify([{ id: 'first' }, { id: 'second' }, { id: 'anonymous' }]));
+ await assert.rejects(createServerTripApi('expired').createTrip({ name: 'expired' }), error => error.name === 'TripApiError' && error.code === 'unauthenticated');
+ assert.deepEqual(calls, [{ token: 'first', name: 'one' }, { token: 'second', name: 'two' }, { token: undefined, name: 'anon' }, { token: 'expired', name: 'expired' }]);
+ assert.equal(stopped, 4);
 });

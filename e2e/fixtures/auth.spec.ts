@@ -1,5 +1,9 @@
 import { test, expect } from '@playwright/test';
 
+test.beforeEach(async ({ page }) => {
+	await page.route('**/query', route => route.fulfill({ json: { data: { me: { __typename: 'User', id: 'user', subscribedTrips: [] } } } }));
+});
+
 const tokens = {
 	idToken: 'mock-id',
 	refreshToken: 'mock-refresh',
@@ -25,6 +29,7 @@ test('home login redirects through REST, exchanges once, returns to drawer and l
 		await route.fulfill({ json: { ...tokens, returnTo: '/' } });
 	});
 	await page.goto('/');
+	await page.getByRole('button', { name: '登入', exact: true }).click();
 	await page.getByRole('button', { name: '使用 Google 登入' }).click();
 	await expect(
 		page.getByRole('button', { name: '登出', exact: true })
@@ -35,11 +40,11 @@ test('home login redirects through REST, exchanges once, returns to drawer and l
 	await page.getByRole('button', { name: 'Open menu' }).click();
 	await page.getByRole('button', { name: '登出', exact: true }).click();
 	await expect(
-		page.getByRole('button', { name: '使用 Google 登入' })
+		page.getByRole('button', { name: '登入', exact: true })
 	).toBeVisible();
 });
 
-test('direct callback clears URL before exchange and reload loses memory session', async ({
+test('direct callback clears URL before exchange and reload restores persistent session', async ({
 	page,
 }) => {
 	await page.route('**/backend/auth/exchange', async (route) => {
@@ -52,14 +57,14 @@ test('direct callback clears URL before exchange and reload loses memory session
 	).toBeVisible();
 	await page.reload();
 	await expect(
-		page.getByRole('button', { name: '使用 Google 登入' })
+		page.getByRole('button', { name: '登出', exact: true })
 	).toBeVisible();
 });
 
 for (const scenario of [
 	{
 		query: '?error=access_denied&code=ignored',
-		message: '已取消或拒絕 Google 授權，可重新登入。',
+		message: '已取消或拒絕第三方授權，可重新登入。',
 	},
 	{ query: '', message: '無效登入連結，請重新登入。' },
 	{
@@ -205,7 +210,7 @@ test('refresh rejection clears login', async ({ page }) => {
 		page.locator('[role="alert"]:not(#__next-route-announcer__)')
 	).toHaveText('登入已失效，請重新登入。');
 	await expect(
-		page.getByRole('button', { name: '使用 Google 登入' })
+		page.getByRole('button', { name: '登入', exact: true })
 	).toBeVisible();
 });
 
@@ -231,7 +236,7 @@ test('logout during refresh cannot be undone by its late response', async ({
 	await release!();
 	await page.clock.fastForward(1);
 	await expect(
-		page.getByRole('button', { name: '使用 Google 登入' })
+		page.getByRole('button', { name: '登入', exact: true })
 	).toBeVisible();
 	await expect(
 		page.getByRole('button', { name: '登出', exact: true })
@@ -240,7 +245,7 @@ test('logout during refresh cannot be undone by its late response', async ({
 
 for (const entryPath of [
 	'/history?view=recent#saved',
-	'/trip/auth-return-trip?tab=records#details',
+	'/trip/550e8400-e29b-41d4-a716-446655440000?tab=records#details',
 ]) {
 	test(`drawer login returns to ${entryPath}`, async ({ page }) => {
 		await page.route('**/query', (route) =>
@@ -249,7 +254,7 @@ for (const entryPath of [
 					data: {
 						trip: {
 							__typename: 'Trip',
-							id: 'auth-return-trip',
+							id: '550e8400-e29b-41d4-a716-446655440000',
 							name: '返回旅程測試',
 							addresses: [],
 							records: [],
@@ -287,7 +292,8 @@ for (const entryPath of [
 		});
 		await page.goto(entryPath);
 		await page.getByRole('button', { name: 'Open menu' }).click();
-		await page.getByRole('button', { name: '使用 Google 登入' }).click();
+		await page.getByRole('button', { name: '登入', exact: true }).click();
+	await page.getByRole('button', { name: '使用 Google 登入' }).click();
 		await expect(page).toHaveURL(`http://127.0.0.1:3100${entryPath}`);
 		await page.getByRole('button', { name: 'Open menu' }).click();
 		await expect(

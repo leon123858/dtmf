@@ -1,24 +1,14 @@
-import {
-	CreateTripMutationData,
-	NewTripInput, // 導入 NewTripInput
-} from './types';
-import { CREATE_TRIP } from './mutation'; // 導入 GraphQL mutation 字串
-import { getClient } from './baseClient';
+import { createHttpClient } from '../graphClient/http';
+import { TripApi } from './client';
+import type { TripService } from './public';
 
-/**
- * 封裝 CREATE_TRIP mutation 的函數
- * @param input - NewTripInput 物件
- * @param token - (可選) 用於身份驗證的 token
- * @returns Promise<CreateTripMutationData>
- */
-export async function createTripHttp(
-	input: NewTripInput
-	// token?: string
-): Promise<CreateTripMutationData> {
-	const ret = await getClient().mutate({
-		mutation: CREATE_TRIP,
-		variables: { input },
-	});
-
-	return ret.data;
+/** Request-local transport: never retain a browser identity on the server. */
+export function createServerTripApi(token?: string): Pick<TripService, 'createTrip'> {
+	const client = createHttpClient(token);
+	return {
+		async createTrip(input) {
+			try { return await new TripApi(client).createTrip(input); }
+			finally { client.stop(); }
+		},
+	};
 }

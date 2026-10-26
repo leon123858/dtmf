@@ -1,14 +1,13 @@
-import { HttpLink, split } from '@apollo/client';
+import { authenticatedFetch } from '../auth/fetch';
+import { createHttpLink } from './http';
+import { split, type TypePolicies } from '@apollo/client';
 import { ApolloClient, InMemoryCache } from '@apollo/client-integration-nextjs';
-import { baseURL, wsURL } from './config';
+import { wsURL } from './config';
 import { getMainDefinition } from '@apollo/client/utilities';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { createClient } from 'graphql-ws';
-import { tripTypePolicies } from './cache';
 
-const httpLink = new HttpLink({
-	uri: baseURL,
-});
+const httpLink = createHttpLink(authenticatedFetch);
 
 const wsLink = new GraphQLWsLink(
 	createClient({
@@ -28,11 +27,12 @@ const splitLink = split(
 	httpLink
 );
 
-export const getClient = () => new ApolloClient({
-	link: splitLink,
-	connectToDevTools: false,
-	devtools: {
-		enabled: false,
-	},
-	cache: new InMemoryCache({ typePolicies: tripTypePolicies }),
-});
+export const getClient = (typePolicies: TypePolicies) =>
+	new ApolloClient({
+		link: splitLink,
+		connectToDevTools: false,
+		devtools: {
+			enabled: false,
+		},
+		cache: new InMemoryCache({ typePolicies }),
+	});

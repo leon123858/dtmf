@@ -3,7 +3,7 @@
 import { useContext, useMemo, useRef, useEffect, useState } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import type { Record } from '@/app/lib/types';
-import { useGraphQLClient } from '@/app/lib/tripApi/client';
+import { useTrip, useUpdateRecord } from '@/app/lib/tripApi/hooks';
 import { recordToInput } from '@/app/lib/tripApi/recordInput';
 import { defaultRecordFilters, filterRecords, prepareRecordRows } from '@/app/lib/recordList';
 import { useRecordListPosition } from '@/app/lib/useRecordListPosition';
@@ -15,9 +15,8 @@ import { RecordDetails } from '@/app/components/RecordDetails';
 export function RecordList({ onEdit, isActive }: { onEdit: (record: Record) => void; isActive: boolean }) {
 	const context = useContext(SingleTripContext);
 	const showHistory = context?.showHistory ?? false;
-	const { queries: { useTrip }, mutations: { useUpdateRecord } } = useGraphQLClient();
 	const { data: tripData, loading, error, refetch } = useTrip(context?.tripId || '', showHistory);
-	const [updateRecord] = useUpdateRecord(context?.tripId || '');
+	const { execute: updateRecord } = useUpdateRecord(context?.tripId || '');
 	const [deleteError, setDeleteError] = useState('');
 	const [deleting, setDeleting] = useState(false);
 	const deletingRef = useRef(false);
@@ -49,7 +48,7 @@ export function RecordList({ onEdit, isActive }: { onEdit: (record: Record) => v
 		setDeleteError('');
 		try {
 			const old = recordToInput(recordToDelete);
-			await updateRecord({ variables: { recordId: recordToDelete.id, input: { old, new: { ...old, isDeleted: true } } } });
+			await updateRecord({ recordId: recordToDelete.id, input: { old, new: { ...old, isDeleted: true } } });
 			setRecordToDelete(null);
 		} catch (error) {
 			setDeleteError(error instanceof Error ? error.message : '刪除失敗，請重試。');
