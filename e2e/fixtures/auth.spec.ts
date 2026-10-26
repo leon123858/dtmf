@@ -64,12 +64,13 @@ test('direct callback clears URL before exchange and reload restores persistent 
 for (const scenario of [
 	{
 		query: '?error=access_denied&code=ignored',
-		message: '已取消或拒絕第三方授權，可重新登入。',
+		message: '已取消或拒絕第三方授權，可重新登入。 (access_denied)',
 	},
+	{ query: '?error=invalid_provider_credential', message: '第三方登入驗證失敗，請重新登入。 (invalid_provider_credential)' },
 	{ query: '', message: '無效登入連結，請重新登入。' },
 	{
 		query: '?error=private-detail',
-		message: '登入服務發生錯誤，請重新登入或稍後再試。(private-detail)',
+		message: '登入服務發生錯誤，請重新登入或稍後再試。 (private-detail)',
 	},
 ]) {
 	test(`callback error ${scenario.query || 'missing parameters'}`, async ({
@@ -102,7 +103,7 @@ test('expired or consumed code is not retried', async ({ page }) => {
 	await page.goto('/auth/complete?code=mock-expired');
 	await expect(
 		page.locator('[role="alert"]:not(#__next-route-announcer__)')
-	).toHaveText('400: 登入連結已失效或已使用，請重新登入。');
+	).toHaveText('400: 登入連結已失效或已使用，請重新登入。 (invalid_login_code)');
 	expect(exchanges).toBe(1);
 });
 
@@ -188,7 +189,7 @@ test('network failure during exchange requires a fresh login', async ({
 	await page.goto('/auth/complete?code=mock-network');
 	await expect(
 		page.locator('[role="alert"]:not(#__next-route-announcer__)')
-	).toHaveText('登入服務暫時無法使用，請稍後再試。');
+	).toHaveText('登入服務暫時無法使用，請稍後再試。 (upstream_error) (Failed to fetch)');
 	await expect(page.getByRole('button', { name: '重新登入' })).toBeVisible();
 	expect(exchanges).toBe(1);
 });
@@ -208,7 +209,7 @@ test('refresh rejection clears login', async ({ page }) => {
 	await page.clock.fastForward(120000);
 	await expect(
 		page.locator('[role="alert"]:not(#__next-route-announcer__)')
-	).toHaveText('登入已失效，請重新登入。');
+	).toHaveText('401: 登入已失效，請重新登入。 (invalid_refresh_token)');
 	await expect(
 		page.getByRole('button', { name: '登入', exact: true })
 	).toBeVisible();
@@ -302,3 +303,51 @@ for (const entryPath of [
 		expect(starts).toBe(1);
 	});
 }
+
+test('login dialog preserves password errors, focus, busy state and mobile wrapping', async ({ page }, testInfo) => {
+	await page.setViewportSize({ width: 375, height: 812 });
+	await page.emulateMedia({ reducedMotion: 'reduce' });
+	const detail = 'unknown_provider_failure_' + 'long_detail_'.repeat(30) + '<script>alert(1)</script>';
+	let requests = 0;
+	let release: (() => Promise<void>) | undefined;
+	await page.route('**/backend/auth/password', route => {
+		requests++;
+		release = () => route.fulfill({ status: 502, json: { error: detail } });
+	});
+	await page.goto('/');
+	await page.getByRole('button', { name: '登入', exact: true }).click();
+	const dialog = page.getByRole('dialog');
+	await expect(dialog.getByRole('button', { name: '使用 Google 登入' })).toBeFocused();
+	await page.screenshot({ path: testInfo.outputPath('login-mobile.png') });
+	await dialog.getByRole('button', { name: '測試登入' }).click();
+	await expect(dialog.getByRole('status')).toHaveText('登入中…');
+	await expect(dialog.getByRole('button', { name: '取消' })).toBeDisabled();
+	await page.keyboard.press('Escape');
+	await expect(dialog).toBeVisible();
+	await expect.poll(() => !!release).toBe(true);
+	await page.screenshot({ path: testInfo.outputPath('login-waiting.png') });
+	await release!();
+	await expect(dialog.getByRole('alert')).toHaveText(`502: 登入服務發生錯誤，請重新登入或稍後再試。 (${detail})`);
+	expect(requests).toBe(1);
+	expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+	await page.screenshot({ path: testInfo.outputPath('login-long-error-mobile.png') });
+	await page.setViewportSize({ width: 1280, height: 900 });
+	await page.screenshot({ path: testInfo.outputPath('login-desktop.png') });
+});
+
+test('callback waiting state and HTTP error retain the original detail', async ({ page }, testInfo) => {
+	let release: (() => Promise<void>) | undefined;
+	let exchanges = 0;
+	await page.route('**/backend/auth/exchange', route => {
+		exchanges++;
+		release = () => route.fulfill({ status: 502, json: { error: 'provider exchange failed' } });
+	});
+	await page.goto('/auth/complete?code=waiting');
+	await expect(page.getByRole('status')).toHaveText('正在完成登入…');
+	await expect.poll(() => !!release).toBe(true);
+	await page.screenshot({ path: testInfo.outputPath('callback-waiting.png') });
+	await release!();
+	await expect(page.getByRole('alert').filter({ hasText: '502:' })).toHaveText('502: 登入服務發生錯誤，請重新登入或稍後再試。 (provider exchange failed)');
+	expect(exchanges).toBe(1);
+	await page.screenshot({ path: testInfo.outputPath('callback-error.png') });
+});

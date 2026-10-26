@@ -8,7 +8,7 @@ import ts from 'typescript';
 function loadModules(globals = {}, overrides = {}) {
 	const modules = new Map();
 	const context = vm.createContext({
-		URL, URLSearchParams, TextEncoder, setTimeout, clearTimeout, AbortController, TypeError,
+		URL, URLSearchParams, TextEncoder, setTimeout, clearTimeout, AbortController, Error, TypeError,
 		fetch: () => assert.fail('unexpected network request'), ...globals,
 	});
 	function load(url) {
@@ -152,7 +152,7 @@ test('401 or invalid refresh token clears credentials', async () => {
 		assert.equal(store.getSnapshot().idToken, null);
 		assert.equal(
 			store.getSnapshot().error,
-			errorMessage('invalid_refresh_token')
+			error.message
 		);
 	}
 });
@@ -362,7 +362,7 @@ test('unknown exchange failures reset loading and do not retry the code', async 
 		const { store } = setup(async () => { calls++; throw error; });
 		assert.equal(await store.getAuthToken('mock'), null);
 		assert.equal(store.getSnapshot().status, 'anonymous');
-		assert.equal(store.getSnapshot().error, errorMessage('unexpected_front_err'));
+		assert.equal(store.getSnapshot().error, errorMessage(error instanceof Error ? error.message : String(error)));
 		store.logout();
 		await store.getAuthToken('mock');
 		assert.equal(calls, 1);
@@ -724,4 +724,17 @@ test('server trip APIs isolate caller tokens, stop request clients, and translat
  await assert.rejects(createServerTripApi('expired').createTrip({ name: 'expired' }), error => error.name === 'TripApiError' && error.code === 'unauthenticated');
  assert.deepEqual(calls, [{ token: 'first', name: 'one' }, { token: 'second', name: 'two' }, { token: undefined, name: 'anon' }, { token: 'expired', name: 'expired' }]);
  assert.equal(stopped, 4);
+});
+
+test('auth errors retain known codes, unknown details and HTTP status', async () => {
+ assert.equal(errorMessage('invalid_provider_credential'), '第三方登入驗證失敗，請重新登入。 (invalid_provider_credential)');
+ const detail = 'unknown failure ' + 'detail'.repeat(200);
+ assert.equal(errorMessage(detail), `登入服務發生錯誤，請重新登入或稍後再試。 (${detail})`);
+ const { store } = setup(async () => { throw new MyError(detail, 502); });
+ await store.getAuthToken('failed');
+ assert.equal(store.getSnapshot().error, new MyError(detail, 502).message);
+ await store.loginWith(async () => { throw new MyError('invalid_provider_credential', 401); });
+ assert.equal(store.getSnapshot().error, '401: 第三方登入驗證失敗，請重新登入。 (invalid_provider_credential)');
+ await store.loginWith(async () => { throw detail; });
+ assert.equal(store.getSnapshot().error, errorMessage(detail));
 });

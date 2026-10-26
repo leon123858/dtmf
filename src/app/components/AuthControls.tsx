@@ -1,4 +1,5 @@
 'use client';
+import { authErrorClassName } from './AuthFeedback';
 import { LogIn, LogOut } from 'lucide-react';
 import { useAuth, useLoginDialog } from '@/app/context/AuthProvider';
 export function AuthControls({ beforeLogin }: { beforeLogin?: () => void }) {
@@ -13,6 +14,6 @@ export function AuthControls({ beforeLogin }: { beforeLogin?: () => void }) {
 			{auth.status === 'authenticated' ? '登出' : '登入'}
 		</button>
 		{auth.storageWarning && <p role='status'>{auth.storageWarning}</p>}
-		{auth.error && <div role='alert'><p>{auth.error}</p>{auth.refreshToken && <button className='underline' onClick={() => void auth.refresh()}>重試刷新</button>}</div>}
+		{auth.error && <div role='alert' className={authErrorClassName}><p>{auth.error}</p>{auth.refreshToken && <button className='underline' onClick={() => void auth.refresh()}>重試刷新</button>}</div>}
 	</div>;
 }

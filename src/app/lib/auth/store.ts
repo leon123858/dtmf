@@ -205,11 +205,11 @@ export class AuthStore {
 			const tokens = await request();
 			if (generation !== this.generation) return;
 			this.acceptTokens(tokens);
-		} catch {
+		} catch (error) {
 			if (generation === this.generation)
 				this.broadcast({
 					status: 'anonymous',
-					error: '登入失敗，請稍後再試。',
+					error: error instanceof MyError ? error.message : errorMessage(error instanceof Error ? error.message : String(error)),
 				});
 		}
 	};
@@ -254,14 +254,14 @@ export class AuthStore {
 					(error.status === 401 || error.code === 'invalid_refresh_token')
 				) {
 					this.logout();
-					this.broadcast({ error: errorMessage('invalid_refresh_token') });
+					this.broadcast({ error: error.message });
 				} else {
 					this.broadcast({
 						refreshing: false,
 						error:
 							error instanceof MyError
 								? error.message
-								: errorMessage('unexpected_front_err'),
+								: errorMessage(error instanceof Error ? error.message : String(error)),
 					});
 				}
 				return false;
@@ -298,7 +298,7 @@ export class AuthStore {
 					error:
 						error instanceof MyError
 							? error.message
-							: errorMessage('unexpected_front_err'),
+							: errorMessage(error instanceof Error ? error.message : String(error)),
 				});
 				return null;
 			});

@@ -1,5 +1,6 @@
 'use client';
 
+import { authErrorClassName, AuthWaiting } from '@/app/components/AuthFeedback';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLoginDialog } from '@/app/context/AuthProvider';
@@ -30,11 +31,11 @@ export function AuthComplete() {
 	}, [router]);
 	return (
 		<main className='min-h-dvh flex items-center justify-center bg-slate-50 p-6'>
-			<div className='max-w-md rounded-xl bg-white p-8 shadow space-y-4'>
+			<div className='w-full max-w-md rounded-2xl bg-white p-8 shadow-xl space-y-4'>
 				<h1 className='text-xl font-bold'>登入</h1>
 				{error ? (
 					<>
-						<p role='alert'>{error}</p>
+						<p role='alert' className={authErrorClassName}>{error}</p>
 						<button
 							onClick={() => {
 								openLogin();
@@ -45,7 +46,7 @@ export function AuthComplete() {
 						</button>
 					</>
 				) : (
-					<p role='status'>正在完成登入…</p>
+					<AuthWaiting>正在完成登入…</AuthWaiting>
 				)}
 			</div>
 		</main>

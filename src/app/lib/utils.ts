@@ -39,8 +39,11 @@ export async function httpCall(
 		return data;
 	} catch (error: unknown) {
 		if (error instanceof MyError) throw error;
-		if (controller.signal.aborted) throw new MyError('upstream_timeout');
-		if (error instanceof TypeError) throw new MyError('upstream_error');
+		if (controller.signal.aborted || error instanceof TypeError) {
+			const failure = new MyError(controller.signal.aborted ? 'upstream_timeout' : 'upstream_error');
+			failure.message += ` (${error instanceof Error ? error.message : String(error)})`;
+			throw failure;
+		}
 		throw error;
 	} finally {
 		clearTimeout(timeout);

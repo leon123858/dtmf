@@ -9,7 +9,7 @@ const messages: Record<string, string> = {
 	unexpected_front_err: '前端登入服務發生不預期錯誤，請稍後再試。',
 };
 export function errorMessage(code: string) {
-	return messages[code] ?? `登入服務發生錯誤，請重新登入或稍後再試。(${code})`;
+	return `${messages[code] ?? '登入服務發生錯誤，請重新登入或稍後再試。'} (${code})`;
 }
 export class MyError extends Error {
 	constructor(
