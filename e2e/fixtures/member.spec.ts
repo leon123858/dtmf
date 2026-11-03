@@ -15,15 +15,15 @@ async function fixture(page: Page, saved = true) {
 		if (operation === 'CurrentUser' || /SubscribedTrip|SubscribeTrip|UnsubscribeTrip/.test(operation)) {
 			expect(route.request().headers().authorization).toBe('Bearer member-token');
 			if (operation !== 'CurrentUser') {
-				expect(body.query).not.toContain('subscribedTrips');
-				expect(body.query).not.toContain('UserFields');
+				expect(body.query).toContain('subscribedTrips');
+				expect(body.query).toContain('UserFields');
 			}
 			const field = operation === 'CurrentUser' ? 'me' : operation[0].toLowerCase() + operation.slice(1);
 			if (field === 'subscribeTrip') trips = [{ id, name: '旅程', lastViewedAt: '2000' }];
 			if (field === 'unsubscribeTrip') trips = [];
 			if (field === 'touchSubscribedTrip') trips = trips.map(trip => ({ ...trip, lastViewedAt: String(Date.now()) }));
-			await route.fulfill({ json: { data: { [field]: { __typename: 'User', id: 'internal-user-id', ...(operation === 'CurrentUser' ? { subscribedTrips: trips } : {}) } } } });
-		} else await route.fulfill({ json: { data: { trip: { __typename: 'Trip', id, name: '旅程', addresses: [], records: [], moneyShare: [], isValid: true } } } });
+			await route.fulfill({ json: { data: { [field]: { __typename: 'User', name: null, email: null, id: 'internal-user-id', subscribedTrips: trips } } } });
+		} else await route.fulfill({ json: { data: { trip: { __typename: 'Trip', private: false, users: [], id, name: '旅程', addresses: [], records: [], moneyShare: [], isValid: true } } } });
 	});
 	return calls;
 }
@@ -100,7 +100,7 @@ test('late member response after logout cannot restore favorites', async ({ page
 	let release: (() => Promise<void>) | undefined;
 	await page.route('**/query', route => {
 		if (route.request().postDataJSON().operationName !== 'CurrentUser') return route.fallback();
-		release = () => route.fulfill({ json: { data: { me: { __typename: 'User', id: 'late-user', subscribedTrips: [{ id, name: '延遲收藏', lastViewedAt: '1000' }] } } } });
+		release = () => route.fulfill({ json: { data: { me: { __typename: 'User', name: null, email: null, id: 'late-user', subscribedTrips: [{ id, name: '延遲收藏', lastViewedAt: '1000' }] } } } });
 	});
 	await login(page);
 	await expect.poll(() => !!release).toBe(true);
@@ -118,7 +118,7 @@ test('delayed member initialization touches the entered trip once; polling and r
 	await page.route('**/query', route => {
 		if (route.request().postDataJSON().operationName !== 'CurrentUser') return route.fallback();
 		calls.push('CurrentUser');
-		release = () => route.fulfill({ json: { data: { me: { __typename: 'User', id: 'internal-user-id', subscribedTrips: [{ id, name: '舊名稱', lastViewedAt: '1000' }] } } } });
+		release = () => route.fulfill({ json: { data: { me: { __typename: 'User', name: null, email: null, id: 'internal-user-id', subscribedTrips: [{ id, name: '舊名稱', lastViewedAt: '1000' }] } } } });
 	});
 	await page.addInitScript(({ tokens }) => localStorage.setItem('dtmf:auth', JSON.stringify({ version: 1, ...tokens, expiresAt: Date.now() + 3600000 })), { tokens });
 	await page.route('**/backend/auth/refresh', route => route.fulfill({ json: tokens }));
@@ -158,23 +158,24 @@ test('GitHub OAuth preserves legal return location and exposes no internal user 
 	await page.screenshot({ path: testInfo.outputPath('favorites-history.png') });
 });
 
-test('a new login loads independently and ignores the previous session query', async ({ page }) => {
+test('a new login waits for the previous query barrier and ignores its result', async ({ page }) => {
 	await fixture(page);
 	let release: (() => Promise<void>) | undefined;
 	let loads = 0;
 	await page.route('**/query', route => {
 		if (route.request().postDataJSON().operationName !== 'CurrentUser' || ++loads > 1) return route.fallback();
-		release = () => route.fulfill({ json: { data: { me: { __typename: 'User', id: 'previous-user', subscribedTrips: [{ id, name: '上一個帳號收藏', lastViewedAt: '1000' }] } } } });
+		release = () => route.fulfill({ json: { data: { me: { __typename: 'User', name: null, email: null, id: 'previous-user', subscribedTrips: [{ id, name: '上一個帳號收藏', lastViewedAt: '1000' }] } } } });
 	});
 	await login(page);
 	await expect.poll(() => !!release).toBe(true);
 	await page.getByRole('button', { name: '登出', exact: true }).click();
 	await page.getByRole('button', { name: '登入', exact: true }).click();
 	await page.getByRole('button', { name: '測試登入', exact: true }).click();
+	expect(loads).toBe(1);
+	await release!();
 	await expect.poll(() => loads).toBe(2);
 	await page.getByRole('link', { name: '歷史紀錄', exact: true }).click();
 	await expect(page.getByRole('button', { name: '帳號名稱', exact: true })).toBeVisible();
-	await release!();
 	await expect(page.getByRole('button', { name: '上一個帳號收藏', exact: true })).toHaveCount(0);
 	await expect(page.getByRole('button', { name: '帳號名稱', exact: true })).toBeVisible();
 });
@@ -184,7 +185,7 @@ test('a delayed favorite mutation cannot overwrite a new login', async ({ page }
 	let release: (() => Promise<void>) | undefined;
 	await page.route('**/query', route => {
 		if (route.request().postDataJSON().operationName !== 'SubscribeTrip') return route.fallback();
-		release = () => route.fulfill({ json: { data: { subscribeTrip: { __typename: 'User', id: 'old-user', subscribedTrips: [{ id, name: '過期收藏', lastViewedAt: '1000' }] } } } });
+		release = () => route.fulfill({ json: { data: { subscribeTrip: { __typename: 'User', name: null, email: null, id: 'old-user', subscribedTrips: [{ id, name: '過期收藏', lastViewedAt: '1000' }] } } } });
 	});
 	await login(page);
 	await page.goto(`/trip/${id}`);
@@ -194,13 +195,15 @@ test('a delayed favorite mutation cannot overwrite a new login', async ({ page }
 	await checkbox.click();
 	await expect.poll(() => !!release).toBe(true);
 	await page.getByRole('button', { name: '登出', exact: true }).click();
+	// Logout clears protected UI immediately even while the old write holds the barrier.
+	await expect(page.getByRole('heading', { name: '旅程', exact: true })).toHaveCount(0);
+	await release!();
+	await page.getByRole('button', { name: 'Open menu' }).click();
 	await page.getByRole('button', { name: '登入', exact: true }).click();
 	await page.getByRole('button', { name: '測試登入', exact: true }).click();
 	await page.getByRole('button', { name: 'Open menu' }).click();
 	await expect(checkbox).toBeEnabled();
-	await release!();
 	await expect(checkbox).not.toBeChecked();
-	await expect(checkbox).toBeEnabled();
 });
 
 test('touches from consecutive trip entries serialize and retain the complete favorites list', async ({ page }) => {
@@ -211,10 +214,10 @@ test('touches from consecutive trip entries serialize and retain the complete fa
 	let release: (() => Promise<void>) | undefined;
 	await page.route('**/query', route => {
 		const { operationName, variables } = route.request().postDataJSON();
-		if (operationName === 'CurrentUser') return route.fulfill({ json: { data: { me: { __typename: 'User', id: 'user', subscribedTrips: trips } } } });
+		if (operationName === 'CurrentUser') return route.fulfill({ json: { data: { me: { __typename: 'User', name: null, email: null, id: 'user', subscribedTrips: trips } } } });
 		if (operationName !== 'TouchSubscribedTrip') return route.fallback();
 		touches.push(variables.tripId);
-		const respond = () => route.fulfill({ json: { data: { touchSubscribedTrip: { __typename: 'User', id: 'user' } } } });
+		const respond = () => route.fulfill({ json: { data: { touchSubscribedTrip: { __typename: 'User', name: null, email: null, id: 'user', subscribedTrips: trips } } } });
 		if (touches.length === 1) { release = respond; return; }
 		return respond();
 	});
@@ -225,16 +228,16 @@ test('touches from consecutive trip entries serialize and retain the complete fa
 	await page.getByRole('button', { name: 'Open menu' }).click();
 	await page.getByRole('button', { name: '瀏覽歷史', exact: true }).click();
 	await page.getByRole('button', { name: '第二個收藏', exact: true }).click();
-	await expect(page.getByRole('heading', { name: '旅程', exact: true })).toBeVisible();
 	expect(touches).toEqual([id]);
 	await release!();
+	await expect(page.getByRole('heading', { name: '旅程', exact: true })).toBeVisible();
 	await expect.poll(() => touches).toEqual([id, secondId]);
 	await page.getByRole('button', { name: 'Open menu' }).click();
 	await expect(page.getByRole('checkbox', { name: '收藏此行程' })).toBeChecked();
 	await expect(page.getByRole('checkbox', { name: '收藏此行程' })).toBeEnabled();
 });
 
-test('id-only subscribe synchronizes history without reloading CurrentUser', async ({ page }) => {
+test('subscribe change synchronizes history without reloading CurrentUser', async ({ page }) => {
 	const calls = await fixture(page, false);
 	await login(page);
 	await page.goto(`/trip/${id}`);
@@ -256,7 +259,7 @@ test('id-only subscribe synchronizes history without reloading CurrentUser', asy
 test('a successful mutation for another user cannot update favorites', async ({ page }) => {
 	const calls = await fixture(page, false);
 	await page.route('**/query', route => route.request().postDataJSON().operationName === 'SubscribeTrip'
-		? route.fulfill({ json: { data: { subscribeTrip: { __typename: 'User', id: 'another-user' } } } }) : route.fallback());
+		? route.fulfill({ json: { data: { subscribeTrip: { __typename: 'User', name: null, email: null, id: 'another-user' } } } }) : route.fallback());
 	await login(page);
 	await page.goto(`/trip/${id}`);
 	await page.getByRole('button', { name: 'Open menu' }).click();

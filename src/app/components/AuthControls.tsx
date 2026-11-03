@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { authErrorClassName } from './AuthFeedback';
 import { LogIn, LogOut } from 'lucide-react';
 import { useAuth, useLoginDialog } from '@/app/context/AuthProvider';
@@ -6,6 +7,7 @@ export function AuthControls({ beforeLogin }: { beforeLogin?: () => void }) {
 	const auth = useAuth();
 	const open = useLoginDialog();
 	return <div className='space-y-2 text-sm'>
+		{auth.status === 'authenticated' && <Link href='/profile' className='block underline'>個人資料</Link>}
 		<button type='button' disabled={auth.status === 'exchanging'} onClick={() => {
 			if (auth.status === 'authenticated') auth.logout();
 			else { beforeLogin?.(); open(); }

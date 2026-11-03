@@ -5,9 +5,9 @@ const SUB_RECORD_FIELDS = gql`
 		id
 		name
 		amount
-		prePayAddress { id name }
+		prePayAddress { id name useNickname }
 		time
-		shouldPayAddress { id name }
+		shouldPayAddress { id name useNickname }
 		extendPayMsg
 		category
 		isValid
@@ -33,18 +33,18 @@ export const SUB_RECORD_UPDATE = gql`
 
 export const SUB_ADDRESS_CREATE = gql`
 	subscription SubAddressCreate($tripId: ID!) {
-		subAddressCreate(tripId: $tripId) { id name }
+		subAddressCreate(tripId: $tripId) { id name useNickname }
 	}
 `;
 
 export const SUB_ADDRESS_UPDATE = gql`
 	subscription SubAddressUpdate($tripId: ID!) {
-		subAddressUpdate(tripId: $tripId) { id name }
+		subAddressUpdate(tripId: $tripId) { id name useNickname }
 	}
 `;
 
 export const SUB_ADDRESS_DELETE = gql`
 	subscription SubAddressDelete($tripId: ID!) {
-		subAddressDelete(tripId: $tripId) { id name }
+		subAddressDelete(tripId: $tripId) { id name useNickname }
 	}
 `;

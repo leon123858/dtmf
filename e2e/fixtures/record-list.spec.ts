@@ -7,8 +7,8 @@ test.use({ locale: 'en-US', timezoneId: 'Asia/Taipei' });
 const chinese = '這是一筆很長很長的帳目名稱，包含飯店住宿交通餐飲以及所有人的共同開銷。'.repeat(6);
 const english = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.repeat(15);
 const addresses = [
-	{ id: 'a', name: '非常非常長的付款人成員名稱'.repeat(5) },
-	{ id: 'b', name: 'AnotherParticipant'.repeat(8) },
+	{ id: 'a', useNickname: false, name: '非常非常長的付款人成員名稱'.repeat(5) },
+	{ id: 'b', useNickname: false, name: 'AnotherParticipant'.repeat(8) },
 ];
 
 function makeRecords(count: number): Record[] {
@@ -43,7 +43,7 @@ async function mockTrip(page: Page, initial: Record[], tripName = 'Layout probe'
 		}
 		if (state.failQuery) return route.fulfill({ status: 503, json: { errors: [{ message: 'Offline' }] } });
 		return route.fulfill({ json: { data: { trip: {
-			id: 'layout-probe', name: tripName, addresses: addresses.map(address => ({ ...address, statistics: null })), moneyShare: [], isValid: true,
+			id: 'layout-probe', private: false, users: [], name: tripName, addresses: addresses.map(address => ({ ...address, bind: null, statistics: null })), moneyShare: [], isValid: true,
 			records: body.variables.haveHistory ? state.records : state.records.filter(record => record.isActive && !record.isDeleted),
 		} } } });
 	});
@@ -117,7 +117,7 @@ test('details preserve full text and restore focus after virtual row unmount', a
 	await page.setViewportSize({ width: 320, height: 844 });
 	const records = makeRecords(200);
 	records[0].name = chinese;
-	records[0].shouldPayAddress = Array.from({ length: 50 }, (_, i) => ({ id: `member-${i}`, name: `Member ${i} ${english}` }));
+	records[0].shouldPayAddress = Array.from({ length: 50 }, (_, i) => ({ useNickname: false, id: `member-${i}`, name: `Member ${i} ${english}` }));
 	await mockTrip(page, records);
 	const trigger = page.locator('[data-record-id="r0"]').getByRole('button', { name: /^查看/ });
 	await trigger.click();
@@ -564,7 +564,7 @@ for (const example of previewCases) {
   await page.setViewportSize({ width: 320, height: 480 });
   const record = {
    ...makeRecords(1)[0], category: example.category, extendPayMsg: example.values,
-   shouldPayAddress: [{ id: 'c', name: 'Charlie' }, { id: 'a', name: 'Alice' }, { id: 'b', name: 'Bob' }],
+   shouldPayAddress: [{ id: 'c', name: 'Charlie', useNickname: false }, { id: 'a', useNickname: false, name: 'Alice' }, { id: 'b', useNickname: false, name: 'Bob' }],
    isValid: example.label !== '設定不完整',
   };
   const state = await mockTrip(page, [record]);
@@ -598,7 +598,7 @@ for (const example of previewCases) {
 
 test('member filter draft remains explicit if its member disappears during synchronization', async ({ page }) => {
  await page.clock.install();
- const ghost = { id: 'ghost', name: 'Temporary member' };
+ const ghost = { id: 'ghost', name: 'Temporary member', useNickname: false };
  const records = makeRecords(2);
  records[0].prePayAddress = ghost;
  const state = await mockTrip(page, records);
@@ -621,7 +621,7 @@ test('member filter draft remains explicit if its member disappears during synch
 test('long preview keeps its close button reachable while reading the last member', async ({ page }) => {
  await page.setViewportSize({ width: 320, height: 480 });
  const record = makeRecords(1)[0];
- record.shouldPayAddress = Array.from({ length: 50 }, (_, i) => ({ id: `member-${i}`, name: `Member ${i}` }));
+ record.shouldPayAddress = Array.from({ length: 50 }, (_, i) => ({ useNickname: false, id: `member-${i}`, name: `Member ${i}` }));
  await mockTrip(page, [record]);
  const trigger = page.getByRole('button', { name: '查看 Lunch', exact: true });
  await trigger.click();

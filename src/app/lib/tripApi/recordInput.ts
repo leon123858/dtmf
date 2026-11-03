@@ -6,7 +6,7 @@ export function normalizeRecord(record: RecordPayload): Record {
 		...record,
 		name: record.name ?? '',
 		amount: record.amount ?? 0,
-		prePayAddress: record.prePayAddress ?? { id: '', name: 'Unknown member' },
+		prePayAddress: record.prePayAddress ?? { id: '', name: 'Unknown member', useNickname: false },
 		shouldPayAddress: record.shouldPayAddress ?? [],
 		extendPayMsg: record.extendPayMsg ?? [],
 	};

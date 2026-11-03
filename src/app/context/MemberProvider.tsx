@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, us
 import { useDomainApis } from '../lib/ApiProvider';
 import type { MemberApi } from '../lib/userApi/public';
 import { authStore } from '../lib/auth/store';
-import type { Operation, User } from '../lib/userApi/types';
+import type { UpdateProfileInput, Operation, User } from '../lib/userApi/types';
 
 interface MemberState {
 	status: 'idle' | 'loading' | 'ready' | 'error';
@@ -15,6 +15,10 @@ interface MemberContextValue extends MemberState {
 	user: User | null;
 	retry: () => Promise<void>;
 	mutate: (operation: Operation, tripId: string, name?: string) => Promise<void>;
+	refreshAccount: () => Promise<void>;
+	updateProfile: (input: UpdateProfileInput) => Promise<void>;
+	bind: (tripId: string, addressId?: string | null) => Promise<void>;
+	unbind: (tripId: string) => Promise<void>;
 	rename: (tripId: string, name: string) => void;
 }
 const initial: MemberState = { status: 'idle', pending: 0, error: null };
@@ -32,7 +36,6 @@ export function MemberProvider({ children }: { children: ReactNode }) {
 	const session = useRef(-1);
 	const active = useRef(false);
 	const loading = useRef<Promise<void> | null>(null);
-	const queue = useRef<Promise<void>>(Promise.resolve());
 	const set = useCallback((patch: Partial<MemberState>) => {
 		stateRef.current = { ...stateRef.current, ...patch };
 		setState(stateRef.current);
@@ -65,7 +68,6 @@ export function MemberProvider({ children }: { children: ReactNode }) {
 			if (generation !== session.current || !authenticated || !apiRef.current) {
 				session.current = generation;
 				loading.current = null;
-				queue.current = Promise.resolve();
 				apiRef.current?.dispose();
 				const next = createMember(() => isCurrent(generation));
 				next.clear();
@@ -91,23 +93,37 @@ export function MemberProvider({ children }: { children: ReactNode }) {
 		const lastViewedAt = String(Date.now());
 		const currentApi = apiRef.current!;
 		set({ pending: stateRef.current.pending + 1, error: null });
-		const request = queue.current.catch(() => { }).then(async () => {
+		const request = (async () => {
 			if (!isCurrent(generation) || apiRef.current !== currentApi) throw new Error('登入已變更。');
 			if (operation === 'subscribeTrip') await currentApi.subscribeTrip({ tripId, name: name ?? '', lastViewedAt });
 			else if (operation === 'touchSubscribedTrip') await currentApi.touchSubscribedTrip({ tripId, lastViewedAt });
 			else await currentApi.unsubscribeTrip(tripId);
 
-		}).catch(error => {
+		})().catch(error => {
 			if (isCurrent(generation) && apiRef.current === currentApi) set({ error: '收藏同步失敗，請重試。' });
 			throw error;
 		}).finally(() => {
 			if (isCurrent(generation) && apiRef.current === currentApi) set({ pending: Math.max(0, stateRef.current.pending - 1) });
 		});
-		queue.current = request;
 		return request;
 	}, [isCurrent, set]);
+	const identity = useCallback((operation: (api: MemberApi) => Promise<void>): Promise<void> => {
+		const currentApi = apiRef.current;
+		const generation = session.current;
+		if (!currentApi || !isCurrent(generation) || stateRef.current.status !== 'ready') return Promise.reject(new Error('請先完成會員載入。'));
+		set({ pending: stateRef.current.pending + 1 });
+		const request = (() => {
+			if (!isCurrent(generation) || apiRef.current !== currentApi) throw new Error('登入已變更。');
+			return operation(currentApi);
+		})().finally(() => { if (isCurrent(generation) && apiRef.current === currentApi) set({ pending: Math.max(0, stateRef.current.pending - 1) }); });
+		return request;
+	}, [isCurrent, set]);
+	const refreshAccount = useCallback(() => identity(current => current.initialize()), [identity]);
+	const updateProfile = useCallback((input: UpdateProfileInput) => identity(current => current.updateProfile(input)), [identity]);
+	const bind = useCallback((tripId: string, addressId?: string | null) => identity(current => current.bind(tripId, addressId)), [identity]);
+	const unbind = useCallback((tripId: string) => identity(current => current.unbind(tripId)), [identity]);
 	const rename = useCallback((tripId: string, name: string) => { apiRef.current?.renameTrip(tripId, name); }, []);
-	return <MemberContext.Provider value={{ ...state, status: state.status === 'ready' && !user ? 'loading' : state.status, user: state.status === 'ready' && isCurrent(session.current) ? user : null, retry, mutate, rename }}>{children}</MemberContext.Provider>;
+	return <MemberContext.Provider value={{ ...state, status: state.status === 'ready' && !user ? 'loading' : state.status, user: state.status === 'ready' && isCurrent(session.current) ? user : null, retry, mutate, rename, refreshAccount, updateProfile, bind, unbind }}>{children}</MemberContext.Provider>;
 }
 
 export function useMember() {

@@ -1,5 +1,5 @@
 import { httpCall } from '../utils';
-import { errorMessage, MyError } from '../error';
+import { errorMessage, MyError } from '../errors';
 
 export interface Tokens {
 	idToken: string;
@@ -196,6 +196,10 @@ export class AuthStore {
 	};
 
 	getSession = () => this.generation;
+
+	// Login completion changes access; token refresh retains the same identity.
+	getAccessIdentity = () =>
+		`${this.generation}:${this.getSnapshot().status === 'authenticated'}`;
 
 	loginWith = async (request: () => Promise<unknown>) => {
 		this.logout();

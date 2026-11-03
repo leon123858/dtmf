@@ -5,9 +5,9 @@ const RECORD_FIELDS = gql`
 		id
 		name
 		amount
-		prePayAddress { id name }
+		prePayAddress { id name useNickname }
 		time
-		shouldPayAddress { id name }
+		shouldPayAddress { id name useNickname }
 		extendPayMsg
 		category
 		isValid
@@ -23,8 +23,8 @@ export const CREATE_TRIP = gql`
 `;
 
 export const UPDATE_TRIP = gql`
-	mutation UpdateTrip($tripId: ID!, $input: NewTrip!) {
-		updateTrip(tripId: $tripId, input: $input) { id name }
+	mutation UpdateTrip($tripId: ID!, $input: EditTrip!) {
+		updateTrip(tripId: $tripId, input: $input) { id name private }
 	}
 `;
 
@@ -44,19 +44,19 @@ export const UPDATE_RECORD = gql`
 
 
 export const CREATE_ADDRESS = gql`
-	mutation CreateAddress($tripId: ID!, $input: NewAddress!) {
-		createAddress(tripId: $tripId, input: $input) { id name }
+	mutation CreateAddress($tripId: ID!, $input: NewAddress!, $bindToMe: Boolean! = false) {
+		createAddress(tripId: $tripId, input: $input, bindToMe: $bindToMe) { id name useNickname }
 	}
 `;
 
 export const UPDATE_ADDRESS = gql`
 	mutation UpdateAddress($tripId: ID!, $addressId: ID!, $input: NewAddress!) {
-		updateAddress(tripId: $tripId, addressId: $addressId, input: $input) { id name }
+		updateAddress(tripId: $tripId, addressId: $addressId, input: $input) { id name useNickname }
 	}
 `;
 
 export const DELETE_ADDRESS = gql`
 	mutation DeleteAddress($tripId: ID!, $addressId: ID!) {
-		deleteAddress(tripId: $tripId, addressId: $addressId) { id name }
+		deleteAddress(tripId: $tripId, addressId: $addressId) { id name useNickname }
 	}
 `;

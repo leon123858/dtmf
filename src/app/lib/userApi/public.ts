@@ -1,16 +1,17 @@
-import type { User } from './types';
+import { MyError } from '../errors';
+import type { UpdateProfileInput, User } from './types';
 
 export interface FavoriteInput {
 	tripId: string;
 	lastViewedAt: string;
 }
 
-export class UserApiError extends Error {
+export class UserApiError extends MyError {
 	constructor(
-		public readonly code: 'session-changed' | 'user-mismatch' | 'unavailable',
-		message: string,
+		code: string,
+		message: string
 	) {
-		super(message);
+		super(code, 0, message);
 		this.name = 'UserApiError';
 	}
 }
@@ -18,6 +19,9 @@ export class UserApiError extends Error {
 /** Domain boundary consumed by MemberProvider. Construction is internal. */
 export interface MemberApi {
 	initialize(): Promise<void>;
+	updateProfile(input: UpdateProfileInput): Promise<void>;
+	bind(tripId: string, addressId?: string | null): Promise<void>;
+	unbind(tripId: string): Promise<void>;
 	subscribeTrip(input: FavoriteInput & { name: string }): Promise<void>;
 	unsubscribeTrip(tripId: string): Promise<void>;
 	touchSubscribedTrip(input: FavoriteInput): Promise<void>;

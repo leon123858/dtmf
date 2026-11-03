@@ -1,5 +1,7 @@
 'use client';
 
+import { useLoginDialog } from '@/app/context/AuthProvider';
+import { MyError } from '@/app/lib/errors';
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { SingleTripProvider } from '@/app/context/SingleTripProvider';
@@ -25,6 +27,7 @@ type EditableRecord = Record | Omit<Record, 'id' | 'time' | 'isValid'>;
 
 function TripContent({ tripId }: { tripId: string }) {
  const router = useRouter();
+ const login = useLoginDialog();
 
 	const {
 		data: tripData,
@@ -102,10 +105,11 @@ function TripContent({ tripId }: { tripId: string }) {
     focusContent(editingRecord ? sourceTab.current : 'records');
  };
 
-	if (!tripData && tripError) {
+	if (tripData === null || (tripError && (!tripData || MyError.isAccessError(tripError)))) {
 		return (
 			<div className='bg-gray-900 text-white h-screen flex flex-col items-center justify-center'>
-				<p className='mb-4'>找不到旅程資料...</p>
+				<p className='mb-4'>{tripError && MyError.isAccessError(tripError) ? tripError.message : tripData === null || (tripError && 'code' in tripError && tripError.code === 'NOT_FOUND') ? '找不到旅程資料。' : '旅程載入失敗，請稍後重試。'}</p>
+                {tripError && MyError.isAccessError(tripError) && 'code' in tripError && tripError.code !== 'FORBIDDEN' && <button className='mb-4 underline' onClick={login}>登入</button>}
                 <button className="mb-4 underline" onClick={() => { void refetch().catch(() => {}); }}>重試</button>
 				<button
 					onClick={() => router.push('/')}

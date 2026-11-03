@@ -1,4 +1,4 @@
-import { MyError } from './error';
+import { MyError } from './errors';
 
 export function longStringSimplify(
 	str: string,
@@ -40,7 +40,9 @@ export async function httpCall(
 	} catch (error: unknown) {
 		if (error instanceof MyError) throw error;
 		if (controller.signal.aborted || error instanceof TypeError) {
-			const failure = new MyError(controller.signal.aborted ? 'upstream_timeout' : 'upstream_error');
+			const failure = new MyError(
+				controller.signal.aborted ? 'upstream_timeout' : 'upstream_error'
+			);
 			failure.message += ` (${error instanceof Error ? error.message : String(error)})`;
 			throw failure;
 		}
@@ -48,4 +50,12 @@ export async function httpCall(
 	} finally {
 		clearTimeout(timeout);
 	}
+}
+
+export function validateName(value: string): string | null {
+	if (!value.trim()) return '名稱不可為空白。';
+	if (Array.from(value).length > 100) return '名稱最多 100 個字元。';
+	if (/[\p{Cc}\u2028\u2029]/u.test(value))
+		return '名稱不可包含控制字元或換行。';
+	return null;
 }

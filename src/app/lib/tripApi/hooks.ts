@@ -15,6 +15,8 @@ export function useTrip(tripId: string, haveHistory = false): TripState {
 
 /** React owns operation state; the API owns request validation and cache writes. */
 function useOperation<Input>(operation: (input: Input) => Promise<void>) {
+	const context = useContext(SingleTripContext);
+	const revoke = context?.revoke;
 	const [state, setState] = useState<{ loading: boolean; error: Error | null }>({ loading: false, error: null });
 	const active = useRef(false);
 	const pending = useRef(0);
@@ -27,13 +29,14 @@ function useOperation<Input>(operation: (input: Input) => Promise<void>) {
 		try { await operation(input); }
 		catch (cause) {
 			const error = cause instanceof Error ? cause : new Error(String(cause));
+			revoke?.(error);
 			if (active.current && request === latest.current) setState(current => ({ ...current, error }));
 			throw error;
 		} finally {
 			pending.current--;
 			if (active.current) setState(current => ({ ...current, loading: pending.current > 0 }));
 		}
-	}, [operation]);
+	}, [operation, revoke]);
 	return { execute, ...state };
 }
 export function useUpdateTrip() {

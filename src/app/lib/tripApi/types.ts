@@ -5,13 +5,14 @@ export enum RecordCategory {
 	FIX_BEFORE_NORMAL = 'FIX_BEFORE_NORMAL', TRANSFER = 'TRANSFER',
 }
 
-export interface AddressSnapshot { id: ID; name: string }
-export interface TripSnapshot { id: ID; name: string }
+export interface AddressSnapshot { id: ID; name: string; useNickname: boolean }
+export interface TripSnapshot { id: ID; name: string; private: boolean }
 export interface AddressStatistics {
  totalExpense: number; totalPrepaid: number; activeRecordCount: number;
 }
 // Statistics are selected only on the trip member list.
-export interface Address extends AddressSnapshot { statistics?: AddressStatistics | null }
+export interface BoundUser { userId: ID; userName: string | null }
+export interface Address extends AddressSnapshot { bind?: BoundUser | null; statistics?: AddressStatistics | null }
 export interface Record {
 	id: ID; name: string; amount: number; prePayAddress: Address; time: string;
 	shouldPayAddress: Address[]; extendPayMsg: number[];
@@ -29,7 +30,8 @@ export interface TripPayload extends Omit<Trip, 'records'> { records: RecordPayl
 export interface Payment { amount: number; address: Address }
 export interface Tx { input: Payment[]; output: Payment }
 export interface Trip {
-	id: ID; name: string; records: Record[]; moneyShare: Tx[];
+ users: BoundUser[];
+	id: ID; name: string; private: boolean; records: Record[]; moneyShare: Tx[];
 	addresses: Address[]; isValid: boolean;
 }
 export interface NewRecordInput {
@@ -39,19 +41,20 @@ export interface NewRecordInput {
 }
 export interface EditRecordInput { old?: NewRecordInput | null; new?: NewRecordInput | null }
 export interface NewTripInput { name: string }
-export interface NewAddressInput { name: string }
+export interface NewAddressInput { name?: string | null; useNickname?: boolean | null }
+export interface EditTripInput { name?: string | null; private?: boolean | null }
 
 export interface TripQueryVariables { tripId: ID; haveHistory?: boolean }
 export interface TripQueryData { trip: TripPayload | null }
 export interface CreateTripMutationVariables { input: NewTripInput }
 export interface CreateTripMutationData { createTrip: Pick<TripSnapshot, 'id'> }
-export interface UpdateTripMutationVariables { tripId: ID; input: NewTripInput }
+export interface UpdateTripMutationVariables { tripId: ID; input: EditTripInput }
 export interface UpdateTripMutationData { updateTrip: TripSnapshot }
 export interface CreateRecordMutationVariables { tripId: ID; input: NewRecordInput }
 export interface CreateRecordMutationData { createRecord: RecordSnapshot }
 export interface UpdateRecordMutationVariables { recordId: ID; input: EditRecordInput }
 export interface UpdateRecordMutationData { updateRecord: RecordSnapshot }
-export interface CreateAddressMutationVariables { tripId: ID; input: NewAddressInput }
+export interface CreateAddressMutationVariables { tripId: ID; input: NewAddressInput; bindToMe?: boolean }
 export interface CreateAddressMutationData { createAddress: AddressSnapshot }
 export interface UpdateAddressMutationVariables { tripId: ID; addressId: ID; input: NewAddressInput }
 export interface UpdateAddressMutationData { updateAddress: AddressSnapshot }
@@ -71,5 +74,5 @@ export interface SubAddressDeleteSubscriptionData { subAddressDelete: AddressSna
 
 export interface GraphQLResponse<T> {
 	data?: T;
-	errors?: Array<{ message: string; locations?: Array<{ line: number; column: number }>; path?: string[] }>;
+	errors?: Array<{ message: string; locations?: Array<{ line: number; column: number }>; path?: string[]; extensions?: { code?: string } }>;
 }

@@ -47,6 +47,7 @@ export const Header = () => {
 				</Message>
 			)}
 			<SideBar isOpen={isOpen} setIsOpen={setIsOpen} name={tripData.name} />
+			<span className='shrink-0 rounded bg-gray-200 px-2 py-1 text-xs text-gray-700'>{tripData.private ? '私有' : '公開'}</span>
 			<button type='button' onClick={handleShare} aria-label='分享行程' title='複製行程連結'
                 className='flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-blue-700 hover:bg-blue-50'>
                 {isCopied ? <Check size={20} aria-hidden='true' /> : <Link size={20} aria-hidden='true' />}

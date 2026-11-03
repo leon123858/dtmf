@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLoginDialog } from '@/app/context/AuthProvider';
 import { authRestClient } from '@/app/lib/auth/store';
-import { errorMessage } from '@/app/lib/error';
+import { errorMessage } from '@/app/lib/errors';
 import { authStore } from '@/app/lib/auth/store';
 
 export function AuthComplete() {

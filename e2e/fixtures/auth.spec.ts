@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
-	await page.route('**/query', route => route.fulfill({ json: { data: { me: { __typename: 'User', id: 'user', subscribedTrips: [] } } } }));
+	await page.route('**/query', route => route.fulfill({ json: { data: { me: { __typename: 'User', name: null, email: null, id: 'user', subscribedTrips: [] } } } }));
 });
 
 const tokens = {
@@ -254,7 +254,7 @@ for (const entryPath of [
 				json: {
 					data: {
 						trip: {
-							__typename: 'Trip',
+							__typename: 'Trip', private: false, users: [],
 							id: '550e8400-e29b-41d4-a716-446655440000',
 							name: '返回旅程測試',
 							addresses: [],

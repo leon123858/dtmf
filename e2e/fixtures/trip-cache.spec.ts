@@ -2,15 +2,15 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 import type { TripPayload, RecordPayload, NewRecordInput } from '../../src/app/lib/tripApi/types';
 import { RecordCategory } from '../../src/app/lib/tripApi/types';
 
-const alice = { __typename: 'Address', id: 'alice', name: 'Alice', statistics: { totalExpense: 50, totalPrepaid: 100, activeRecordCount: 1 } };
-const bob = { __typename: 'Address', id: 'bob', name: 'Bob', statistics: { totalExpense: 50, totalPrepaid: 0, activeRecordCount: 1 } };
+const alice = { __typename: 'Address', bind: null, useNickname: false, id: 'alice', name: 'Alice', statistics: { totalExpense: 50, totalPrepaid: 100, activeRecordCount: 1 } };
+const bob = { __typename: 'Address', bind: null, useNickname: false, id: 'bob', name: 'Bob', statistics: { totalExpense: 50, totalPrepaid: 0, activeRecordCount: 1 } };
 const initialRecord = {
   __typename: 'Record', id: 'r1', name: 'Lunch', amount: 100, prePayAddress: alice,
   shouldPayAddress: [alice, bob], extendPayMsg: [50, 50], category: RecordCategory.NORMAL,
   time: '1789056000000', isValid: true, isDeleted: false, isActive: true, parentRecordId: null,
 };
 
-const snapshot = ({ id, name }: { id: string; name: string }) => ({ __typename: 'AddressSnapshot', id, name });
+const snapshot = ({ id, name }: { id: string; name: string }) => ({ __typename: 'AddressSnapshot', useNickname: false, id, name });
 
 async function fixture(page: Page) {
   await page.clock.install();
@@ -18,7 +18,7 @@ async function fixture(page: Page) {
     queries: [] as boolean[], mutations: [] as string[], failQuery: false, failMutation: false,
     holdNextQuery: false, release: undefined as (() => Promise<void>) | undefined,
     trip: {
-      __typename: 'Trip', id: 'cache-probe', name: 'Cache probe', records: [initialRecord] as RecordPayload[],
+      __typename: 'Trip', private: false, users: [], id: 'cache-probe', name: 'Cache probe', records: [initialRecord] as RecordPayload[],
       addresses: [alice, bob], moneyShare: [], isValid: true,
     } as TripPayload,
   };
@@ -50,12 +50,12 @@ async function fixture(page: Page) {
       value = { ...record, __typename: 'RecordSnapshot', prePayAddress: snapshot(record.prePayAddress), shouldPayAddress: record.shouldPayAddress.map(snapshot) };
       field = operationName === 'CreateRecord' ? 'createRecord' : 'updateRecord';
     } else if (operationName === 'CreateAddress') {
-      const address = { __typename: 'Address', id: 'guest', name: variables.input.name, statistics: null };
+      const address = { __typename: 'Address', bind: null, useNickname: false, id: 'guest', name: variables.input.name, statistics: null };
       state.trip.addresses.push(address);
       value = snapshot(address);
       field = 'createAddress';
     } else if (operationName === 'UpdateAddress') {
-      const updated = { __typename: 'Address', id: variables.addressId, name: variables.input.name };
+      const updated = { __typename: 'Address', bind: null, useNickname: false, id: variables.addressId, name: variables.input.name };
       state.trip.addresses = state.trip.addresses.map(address => address.id === updated.id ? { ...address, ...updated } : address);
       value = snapshot(updated);
       field = 'updateAddress';
@@ -109,7 +109,7 @@ test('one initial query and one eligible poll, regardless of mounted readers', a
   expect(state.queries.length).toBe(6);
 });
 
-test('create, edit, delete and member mutations update UI without trip queries', async ({ page }) => {
+test('record and member mutations update UI; nickname edits explicitly refresh', async ({ page }) => {
   const state = await fixture(page);
   await page.getByRole('button', { name: '記帳', exact: true }).click();
   await page.getByLabel('項目名稱', { exact: true }).fill('Breakfast');
@@ -127,14 +127,14 @@ test('create, edit, delete and member mutations update UI without trip queries',
   await page.getByPlaceholder('輸入新成員名稱').fill('Guest');
   await page.getByRole('main').getByRole('button', { name: '新增', exact: true }).click();
   await expect(page.getByText('Guest', { exact: true })).toBeVisible();
-  await page.getByText('Guest', { exact: true }).locator('..').getByRole('button', { name: '改名' }).click();
-  await page.getByRole('textbox', { name: '修改 Guest 的名稱' }).fill('Visitor');
+  await page.getByText('Guest', { exact: true }).locator('..').getByRole('button', { name: '名稱設定' }).click();
+  await page.getByRole('textbox', { name: '設定新旅程暱稱' }).fill('Visitor');
   await page.getByRole('button', { name: '儲存', exact: true }).click();
   await expect(page.getByText('Visitor', { exact: true })).toBeVisible();
   await page.getByText('Visitor', { exact: true }).locator('..').getByRole('button', { name: '移除' }).click();
   await expect(page.getByText('Visitor', { exact: true })).toHaveCount(0);
   expect(state.mutations).toEqual(['CreateRecord', 'UpdateRecord', 'UpdateRecord', 'CreateAddress', 'UpdateAddress', 'DeleteAddress']);
-  expect(state.queries).toEqual([false]);
+  expect(state.queries).toEqual([false, false]);
 });
 
 test('history mutations preserve parents and tombstones without refetching', async ({ page }) => {

@@ -1,5 +1,8 @@
 import { useContext, useId } from 'react';
 import { SingleTripContext } from '../context/SingleTripProvider';
+import { useMember } from '../context/MemberProvider';
+import { useAuth } from '../context/AuthProvider';
+import { TripSettings } from './TripSettings';
 import { TripFavorite } from './TripFavorite';
 import { AuthControls } from './AuthControls';
 import { ModalDialog } from './ModalDialog';
@@ -25,6 +28,9 @@ export const SideBar: React.FC<SideBarProps> = ({
 	name,
 }) => {
 	const router = useRouter();
+ const member = useMember();
+ const auth = useAuth();
+
 	const context = useContext(SingleTripContext);
 	const labelId = useId();
 	const navItems = [
@@ -79,7 +85,11 @@ export const SideBar: React.FC<SideBarProps> = ({
 					<p className='mb-6 break-words [overflow-wrap:anywhere] font-semibold'>
 						{name}
 					</p>
-					<nav>
+					{auth.status === 'authenticated' && <div className='mb-4 space-y-2'>
+      <p className='break-words'>{member.user?.name || '已登入'}</p>
+     </div>}
+     {context && <button className='mb-4 w-full rounded-lg p-3 text-left hover:bg-gray-700' onClick={() => { setIsOpen(false); context.setSettingsOpen(true); }}>旅程設定</button>}
+     <nav>
 						<ul>
 							{navItems.map((item, index) => (
 								<li key={index} className='mb-2'>
@@ -126,6 +136,7 @@ export const SideBar: React.FC<SideBarProps> = ({
 					</div>
 				</div>
 			</ModalDialog>
+			{context && <TripSettings open={context.settingsOpen} close={() => context.setSettingsOpen(false)} />}
 			<div className='flex flex-1 min-w-0 items-center gap-2'>
 				<button
 					onClick={() => {

@@ -6,8 +6,10 @@ import vm from 'node:vm';
 import ts from 'typescript';
 
 const require = createRequire(import.meta.url);
+const errors = {};
+vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../src/app/lib/errors.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports: errors, Error });
 const domain = {};
-vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../src/app/lib/tripApi/public.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports: domain });
+vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../src/app/lib/tripApi/public.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports: domain, require: () => errors });
 const { TripApiError } = domain;
 const source = readFileSync(new URL('../src/app/lib/staticActions/tripActions.ts', import.meta.url), 'utf8');
 const compiled = ts.transpileModule(source, {
@@ -17,7 +19,7 @@ const compiled = ts.transpileModule(source, {
 function loadAction(createTripHttp) {
   const exports = {};
   vm.runInNewContext(compiled, {
-    exports,
+    exports, Error,
     require: name => name === '../tripApi/http' ? { createServerTripApi: token => ({ createTrip: input => createTripHttp(input, token) }) } : name === '../tripApi/public' ? domain : require(name),
     console: { error() {} },
   });

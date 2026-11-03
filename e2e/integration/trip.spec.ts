@@ -25,9 +25,9 @@ test('旅程主要功能：成員、帳目、分帳、還款、分享與歷史',
       await expect(page.getByText(name, { exact: true })).toBeVisible();
     }
     const guest = page.locator('div').filter({ has: page.getByText('Guest', { exact: true }) })
-      .filter({ has: page.getByRole('button', { name: '改名', exact: true }) }).last();
-    await guest.getByRole('button', { name: '改名' }).click();
-    await page.getByRole('textbox', { name: '修改 Guest 的名稱' }).fill('Visitor');
+      .filter({ has: page.getByRole('button', { name: '名稱設定', exact: true }) }).last();
+    await guest.getByRole('button', { name: '名稱設定' }).click();
+    await page.getByRole('textbox', { name: '設定新旅程暱稱' }).fill('Visitor');
     await page.getByRole('button', { name: '儲存', exact: true }).click();
     const visitor = page.getByText('Visitor', { exact: true });
     await expect(visitor).toBeVisible();
@@ -113,4 +113,38 @@ test('旅程主要功能：成員、帳目、分帳、還款、分享與歷史',
     await expect(page.getByText('Dinner', { exact: true })).toBeVisible();
     await expectDebt('200.00');
   });
+});
+
+test('真實後端：分頁及統計切換不查詢，明確刷新才重新讀取', async ({ page }) => {
+  const queries: boolean[] = [];
+  page.on('request', request => {
+    if (!request.url().endsWith('/query') || request.method() !== 'POST') return;
+    const body = request.postDataJSON();
+    if (body.operationName === 'GetTrip') queries.push(body.variables.haveHistory);
+  });
+  const name = `Refresh-${randomUUID().slice(0, 8)}`;
+  await page.goto('/');
+  await page.getByPlaceholder('例如: 2024 日本關西之旅').fill(name);
+  await page.getByRole('button', { name: '開始分帳' }).click();
+  await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+  await page.clock.install();
+  await page.clock.pauseAt(new Date());
+  expect(queries).toEqual([false]);
+  await page.getByRole('button', { name: '成員', exact: true }).click();
+  await page.getByRole('button', { name: '新增成員' }).click();
+  await page.getByPlaceholder('輸入新成員名稱').fill('Alice');
+  await page.getByRole('main').getByRole('button', { name: '新增', exact: true }).click();
+  await expect(page.getByText('Alice', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '分帳', exact: true }).click();
+  await page.getByRole('button', { name: '成員統計', exact: true }).click();
+  const statistics = page.getByRole('region', { name: '成員統計資料' });
+  await expect(statistics).toContainText('Alice');
+  expect(queries).toEqual([false]);
+  await page.getByRole('button', { name: 'refresh money share' }).click();
+  await expect(statistics).toContainText('$0.00');
+  expect(queries).toEqual([false, false]);
+  await expect(page.getByRole('button', { name: '成員統計', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: '結算', exact: true }).click();
+  await page.getByRole('button', { name: '帳目', exact: true }).click();
+  expect(queries).toEqual([false, false]);
 });
