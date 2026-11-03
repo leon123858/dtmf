@@ -56,8 +56,9 @@ async function mockTrip(page: Page, initial: Record[], tripName = 'Layout probe'
 
 async function history(page: Page) {
 	await page.getByRole('button', { name: 'Open menu', exact: true }).click();
-	await page.getByRole('switch', { name: 'Record history', exact: true }).click();
-	await page.getByRole('button', { name: 'Close menu', exact: true }).click();
+	await page.getByRole('button', { name: '旅程設定', exact: true }).click();
+	await page.getByRole('switch', { name: '顯示紀錄歷史', exact: true }).click();
+	await page.getByRole('button', { name: '關閉', exact: true }).click();
 }
 
 async function measurements(page: Page) {

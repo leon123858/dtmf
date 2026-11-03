@@ -75,8 +75,9 @@ async function fixture(page: Page) {
 
 async function history(page: Page, enabled: boolean) {
   await page.getByRole('button', { name: 'Open menu', exact: true }).click();
-  await page.getByRole('switch', { name: 'Record history', exact: true }).setChecked(enabled);
-  await page.getByRole('button', { name: 'Close menu', exact: true }).click();
+  await page.getByRole('button', { name: '旅程設定', exact: true }).click();
+  await page.getByRole('switch', { name: '顯示紀錄歷史', exact: true }).setChecked(enabled);
+  await page.getByRole('button', { name: '關閉', exact: true }).click();
 }
 async function edit(page: Page, from: string, to: string) {
   await page.getByRole('button', { name: `編輯 ${from}`, exact: true }).click();

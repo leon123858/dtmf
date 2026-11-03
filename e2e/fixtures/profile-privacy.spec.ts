@@ -224,11 +224,12 @@ test('privacy requires joined membership and explicit confirmation; last member 
 	const state = await fixture(page, { joined: true, addressId: aliceId });
 	await members(page);
 	const dialog = await settings(page);
-	await dialog.getByRole('button', { name: '改為私有旅程' }).click();
-	await expect(dialog).toContainText('目前無邀請功能');
+	await dialog.getByRole('switch', { name: '私有旅程', exact: true }).click();
+	await expect(page.getByRole('dialog', { name: '確認切換旅程隱私', exact: true })).toContainText('目前無邀請功能');
 	expect(operations(state, 'UpdateTrip')).toHaveLength(0);
-	await dialog.getByRole('button', { name: '確認切換' }).click();
-	await expect(dialog).not.toBeVisible();
+	await page.getByRole('dialog', { name: '確認切換旅程隱私', exact: true }).getByRole('button', { name: '確認切換' }).click();
+	await expect(dialog).toBeVisible();
+	await dialog.getByRole('button', { name: '關閉', exact: true }).click();
 	await expect(page.getByText('私有', { exact: true })).toBeVisible();
 	await page.getByRole('button', { name: '離開旅程', exact: true }).click();
 	await page.getByRole('button', { name: '確認離開', exact: true }).click();
@@ -237,9 +238,10 @@ test('privacy requires joined membership and explicit confirmation; last member 
 	await expect(dialog).toBeVisible();
 	await page.screenshot({ path: testInfo.outputPath('privacy-mobile.png'), fullPage: true });
 	await testInfo.attach('privacy-mobile', { path: testInfo.outputPath('privacy-mobile.png'), contentType: 'image/png' });
-	await dialog.getByRole('button', { name: '改為公開旅程' }).click();
-	await dialog.getByRole('button', { name: '確認切換' }).click();
-	await expect(dialog).not.toBeVisible();
+	await dialog.getByRole('switch', { name: '私有旅程', exact: true }).click();
+	await page.getByRole('dialog', { name: '確認切換旅程隱私', exact: true }).getByRole('button', { name: '確認切換' }).click();
+	await expect(dialog).toBeVisible();
+	await dialog.getByRole('button', { name: '關閉', exact: true }).click();
 	await page.getByRole('button', { name: '離開旅程', exact: true }).click();
 	await page.getByRole('button', { name: '確認離開', exact: true }).click();
 	await expect(page.getByRole('button', { name: '加入旅程', exact: true })).toBeVisible();
@@ -251,7 +253,7 @@ test('public visitors can edit without joining; privacy settings do not silently
 	await members(page);
 	const dialog = await settings(page);
 	await expect(dialog).toContainText('需先加入旅程');
-	await expect(dialog.getByRole('button', { name: '改為私有旅程' })).toHaveCount(0);
+	await expect(dialog.getByRole('switch', { name: '私有旅程', exact: true })).toBeDisabled();
 	expect(operations(state, 'BindTrip')).toHaveLength(0);
 	await dialog.getByRole('button', { name: '關閉', exact: true }).click();
 	await page.getByRole('button', { name: '名稱設定' }).first().click();
@@ -303,19 +305,23 @@ test('profile name changes refresh bound names and historical records on returni
 	await members(page);
 	await expect(page.getByText('我的分帳身分：小明', { exact: true })).toBeVisible();
 	await page.getByRole('button', { name: 'Open menu' }).click();
-	await page.getByRole('switch', { name: 'Record history', exact: true }).check();
-	await page.getByRole('link', { name: '個人資料', exact: true }).click();
+	await page.getByRole('button', { name: '旅程設定', exact: true }).click();
+	await page.getByRole('switch', { name: '顯示紀錄歷史', exact: true }).check();
+	await page.getByRole('button', { name: '關閉', exact: true }).click();
+	await page.getByRole('button', { name: 'Open menu' }).click();
+	await page.getByRole('button', { name: '個人資料', exact: true }).click();
 	await page.getByLabel('個人名稱').fill('新的個人名稱');
 	await page.getByRole('button', { name: '儲存', exact: true }).click();
 	await expect(page.getByText('個人資料已儲存。')).toBeVisible();
 	await page.getByRole('button', { name: 'Open menu' }).click();
-	await page.getByRole('button', { name: '瀏覽歷史', exact: true }).click();
+	await page.getByRole('button', { name: '歷史紀錄', exact: true }).click();
 	await page.getByRole('button', { name: '身分測試旅程', exact: true }).click();
 	await page.getByRole('button', { name: '成員', exact: true }).click();
 	await expect(page.getByText('我的分帳身分：新的個人名稱', { exact: true })).toBeVisible();
 	await page.getByRole('button', { name: 'Open menu' }).click();
-	await page.getByRole('switch', { name: 'Record history', exact: true }).check();
-	await page.getByRole('button', { name: 'Close menu', exact: true }).click();
+	await page.getByRole('button', { name: '旅程設定', exact: true }).click();
+	await page.getByRole('switch', { name: '顯示紀錄歷史', exact: true }).check();
+	await page.getByRole('button', { name: '關閉', exact: true }).click();
 	await page.getByRole('button', { name: '帳目', exact: true }).click();
 	await page.getByRole('button', { name: '查看 測試帳目', exact: true }).click();
 	await expect(page.getByRole('dialog', { name: '帳目詳情' })).toContainText('新的個人名稱');
@@ -334,7 +340,8 @@ for (const operation of ['UpdateAddress', 'SubscribeTrip']) test(`access rejecte
 		await page.getByRole('button', { name: '儲存', exact: true }).click();
 	} else {
 		await page.getByRole('button', { name: 'Open menu' }).click();
-		await page.getByRole('checkbox', { name: '收藏此行程' }).click();
+		await page.getByRole('button', { name: '旅程設定', exact: true }).click();
+		await page.getByRole('switch', { name: '收藏此行程' }).click();
 	}
 	await expect(page.getByText('你沒有此旅程的存取或操作權限。')).toBeVisible();
 	await expect(page.getByRole('heading', { name: '身分測試旅程', exact: true })).toHaveCount(0);
@@ -365,12 +372,12 @@ test('privacy save followed by a failed query retries only reads', async ({ page
 	const state = await fixture(page, { joined: true });
 	await members(page);
 	const dialog = await settings(page);
-	await dialog.getByRole('button', { name: '改為私有旅程' }).click();
+	await dialog.getByRole('switch', { name: '私有旅程', exact: true }).click();
 	state.failTripReads = 1;
-	await dialog.getByRole('button', { name: '確認切換' }).click();
+	await page.getByRole('dialog', { name: '確認切換旅程隱私', exact: true }).getByRole('button', { name: '確認切換' }).click();
 	await expect(dialog.getByRole('alert')).toContainText('已儲存，資料更新失敗');
 	await dialog.getByRole('button', { name: '重試更新資料' }).click();
-	await expect(dialog).not.toBeVisible();
+	await expect(dialog).toBeVisible();
 	expect(operations(state, 'UpdateTrip')).toHaveLength(1);
 });
 
@@ -381,8 +388,9 @@ test('successful private departure clears both modes and stops polling when foll
 	await members(page);
 	// Populate both query variants before leaving.
 	await page.getByRole('button', { name: 'Open menu' }).click();
-	await page.getByRole('switch', { name: 'Record history', exact: true }).check();
-	await page.getByRole('button', { name: 'Close menu', exact: true }).click();
+	await page.getByRole('button', { name: '旅程設定', exact: true }).click();
+	await page.getByRole('switch', { name: '顯示紀錄歷史', exact: true }).check();
+	await page.getByRole('button', { name: '關閉', exact: true }).click();
 	await expect(page.getByText('我的分帳身分：小明', { exact: true })).toBeVisible();
 	state.failures.GetTrip = { message: 'trip offline after departure' };
 	await page.getByRole('button', { name: '離開旅程', exact: true }).click();
@@ -404,4 +412,37 @@ test('successful private departure clears both modes and stops polling when foll
 	await page.clock.fastForward(40_000);
 	await expect.poll(() => operations(state, 'GetTrip').length).toBeGreaterThan(recovered);
 	expect(state.calls.filter(call => /^(SubscribeTrip|UnsubscribeTrip)$/.test(call.operation))).toHaveLength(0);
+});
+
+for (const width of [390, 1280]) test(`settings center, keyboard, cancellation and saved state at ${width}px`, async ({ page }, testInfo) => {
+ await page.setViewportSize({ width, height: 844 });
+ const state = await fixture(page, { joined: true });
+ await members(page);
+ const reads = operations(state, 'GetTrip').length;
+ const dialog = await settings(page);
+ await page.screenshot({ path: testInfo.outputPath(`settings-${width}.png`) });
+ const box = await dialog.boundingBox();
+ expect(box).not.toBeNull();
+ expect(Math.abs(box!.x + box!.width / 2 - width / 2)).toBeLessThan(2);
+ expect(box!.x).toBeGreaterThanOrEqual(15);
+ const privacy = dialog.getByRole('switch', { name: '私有旅程', exact: true });
+ await privacy.focus();
+ await page.keyboard.press('Space');
+ const confirmation = page.getByRole('dialog', { name: '確認切換旅程隱私', exact: true });
+ await expect(confirmation.getByRole('button', { name: '取消', exact: true })).toBeFocused();
+ await expect(dialog.locator('#trip-private')).not.toBeChecked();
+ await page.keyboard.press('Escape');
+ await expect(privacy).toBeFocused();
+ await expect(privacy).not.toBeChecked();
+ expect(operations(state, 'UpdateTrip')).toHaveLength(0);
+ expect(operations(state, 'GetTrip')).toHaveLength(reads);
+ await privacy.click();
+ await confirmation.getByRole('button', { name: '確認切換' }).click();
+ await expect(confirmation).not.toBeVisible();
+ await expect(dialog).toBeVisible();
+ await expect(dialog.getByRole('status')).toContainText('隱私設定已儲存');
+ await expect(privacy).toBeChecked();
+ expect(operations(state, 'UpdateTrip')).toHaveLength(1);
+ await page.keyboard.press('Escape');
+ await expect(page.getByRole('button', { name: 'Open menu' })).toBeFocused();
 });

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { AuthControls } from './components/AuthControls';
 import { TripCreationForm } from '@/app/components/TripCreateForm';
+import { HomeProfileLink } from './components/HomeProfileLink';
 import { BookOpenIcon } from '@heroicons/react/24/solid';
 
 export const metadata = {
@@ -33,13 +34,16 @@ export default async function HomePage() {
 		<div className='bg-slate-50 min-h-screen flex flex-col'>
 			<header className='w-full p-4 border-b border-slate-200 bg-white/80 backdrop-blur-sm sticky top-0 z-10'>
 				<nav className='max-w-4xl mx-auto flex items-center justify-between'>
-					<Link
-						href='/history'
-						className='flex items-center justify-center gap-2 text-slate-600 font-semibold p-2 rounded-lg hover:bg-slate-200 transition-colors'
-					>
-						<BookOpenIcon className='w-5 h-5' />
-						<span>歷史紀錄</span>
-					</Link>
+					<div className='flex items-center gap-1 flex-wrap'>
+						<Link
+							href='/history'
+							className='flex items-center justify-center gap-2 text-slate-600 font-semibold p-2 rounded-lg hover:bg-slate-200 transition-colors'
+						>
+							<BookOpenIcon className='w-5 h-5' />
+							<span>歷史紀錄</span>
+						</Link>
+						<HomeProfileLink />
+					</div>
 
 					<h1 className='text-lg sm:text-xl font-bold text-slate-800 hidden sm:block'>
 						<span className='hidden sm:inline'>力量兔兔 | </span>

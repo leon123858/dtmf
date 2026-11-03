@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 test('real member login, automatic favorite on creation, reload and logout', async ({ page }) => {
 	test.skip(process.env.E2E_MEMBER_ENABLED !== '1', 'Real member tests require E2E_MEMBER_ENABLED=1 and complete backend GCIP/account configuration.');
 	await page.goto('/');
+	if (await page.getByRole('dialog', { name: '旅程設定', exact: true }).isVisible()) { await page.getByRole('button', { name: '關閉', exact: true }).click(); await page.getByRole('button', { name: 'Open menu' }).click(); }
 	await page.getByRole('button', { name: '登入', exact: true }).click();
 	await page.getByRole('button', { name: '測試登入', exact: true }).click();
 	await expect(page.getByRole('button', { name: '登出', exact: true })).toBeVisible();
@@ -20,25 +21,31 @@ test('real member login, automatic favorite on creation, reload and logout', asy
 	expect(createActions).toBe(1);
 	expect(subscribeAttempts).toBe(0);
 	await page.getByRole('button', { name: 'Open menu' }).click();
-	await expect(page.getByRole('checkbox', { name: '收藏此行程' })).toBeChecked();
+	await page.getByRole('button', { name: '旅程設定', exact: true }).click();
+	await expect(page.getByRole('switch', { name: '收藏此行程' })).toBeChecked();
 	expect(subscribeAttempts).toBe(0);
-	await page.getByRole('button', { name: '瀏覽歷史', exact: true }).click();
+	if (await page.getByRole('dialog', { name: '旅程設定', exact: true }).isVisible()) { await page.getByRole('button', { name: '關閉', exact: true }).click(); await page.getByRole('button', { name: 'Open menu' }).click(); }
+	await page.getByRole('button', { name: '歷史紀錄', exact: true }).click();
 	await expect(page).toHaveURL(/\/history$/);
 	await page.reload();
 	await page.getByRole('button', { name: '收藏', exact: true }).click();
 	await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
 	await page.getByRole('button', { name, exact: true }).click();
 	await page.getByRole('button', { name: 'Open menu' }).click();
-	await page.getByRole('checkbox', { name: '收藏此行程' }).click();
-	await expect(page.getByRole('checkbox', { name: '收藏此行程' })).not.toBeChecked();
+	await page.getByRole('button', { name: '旅程設定', exact: true }).click();
+	await page.getByRole('switch', { name: '收藏此行程' }).click();
+	await expect(page.getByRole('switch', { name: '收藏此行程' })).not.toBeChecked();
+	if (await page.getByRole('dialog', { name: '旅程設定', exact: true }).isVisible()) { await page.getByRole('button', { name: '關閉', exact: true }).click(); await page.getByRole('button', { name: 'Open menu' }).click(); }
 	await page.getByRole('button', { name: '登出', exact: true }).click();
 	await page.getByRole('button', { name: 'Open menu' }).click();
-	await expect(page.getByRole('checkbox', { name: '收藏此行程' })).toBeDisabled();
+	await page.getByRole('button', { name: '旅程設定', exact: true }).click();
+	await expect(page.getByRole('switch', { name: '收藏此行程' })).toBeDisabled();
 });
 
 test('real member binding, nickname and privacy lifecycle', async ({ page, context }) => {
 	test.skip(process.env.E2E_MEMBER_ENABLED !== '1', 'Real member tests require E2E_MEMBER_ENABLED=1 and complete backend GCIP/account configuration.');
 	await page.goto('/');
+	if (await page.getByRole('dialog', { name: '旅程設定', exact: true }).isVisible()) { await page.getByRole('button', { name: '關閉', exact: true }).click(); await page.getByRole('button', { name: 'Open menu' }).click(); }
 	await page.getByRole('button', { name: '登入', exact: true }).click();
 	await page.getByRole('button', { name: '測試登入', exact: true }).click();
 	await expect(page.getByRole('button', { name: '登出', exact: true })).toBeVisible();
@@ -61,12 +68,13 @@ test('real member binding, nickname and privacy lifecycle', async ({ page, conte
 	await page.getByRole('button', { name: '儲存', exact: true }).click();
 	await expect(page.getByText(`我的分帳身分：Self-${name}`, { exact: true })).toBeVisible();
 	await page.getByRole('button', { name: 'Open menu' }).click();
-	await expect(page.getByRole('checkbox', { name: '收藏此行程' })).toBeChecked();
 	await page.getByRole('button', { name: '旅程設定', exact: true }).click();
+	await expect(page.getByRole('switch', { name: '收藏此行程' })).toBeChecked();
 	const settings = page.getByRole('dialog', { name: '旅程設定' });
-	await settings.getByRole('button', { name: '改為私有旅程' }).click();
-	await settings.getByRole('button', { name: '確認切換' }).click();
-	await expect(settings).not.toBeVisible();
+	await settings.getByRole('switch', { name: '私有旅程', exact: true }).click();
+	await page.getByRole('dialog', { name: '確認切換旅程隱私', exact: true }).getByRole('button', { name: '確認切換' }).click();
+	await expect(settings).toBeVisible();
+	await settings.getByRole('button', { name: '關閉', exact: true }).click();
 	await expect(page.getByText('私有', { exact: true })).toBeVisible();
 	const anonymous = await context.browser()!.newContext();
 	try {
@@ -79,14 +87,16 @@ test('real member binding, nickname and privacy lifecycle', async ({ page, conte
 	await page.getByRole('button', { name: '確認離開', exact: true }).click();
 	await expect(page.getByRole('dialog', { name: '離開旅程？' }).getByRole('alert')).toContainText('最後一名成員');
 	await page.getByRole('button', { name: '前往隱私設定' }).click();
-	await settings.getByRole('button', { name: '改為公開旅程' }).click();
-	await settings.getByRole('button', { name: '確認切換' }).click();
-	await expect(settings).not.toBeVisible();
+	await settings.getByRole('switch', { name: '私有旅程', exact: true }).click();
+	await page.getByRole('dialog', { name: '確認切換旅程隱私', exact: true }).getByRole('button', { name: '確認切換' }).click();
+	await expect(settings).toBeVisible();
+	await settings.getByRole('button', { name: '關閉', exact: true }).click();
 	await page.getByRole('button', { name: '離開旅程', exact: true }).click();
 	await page.getByRole('button', { name: '確認離開', exact: true }).click();
 	await expect(page.getByRole('button', { name: '加入旅程', exact: true })).toBeVisible();
 	await page.getByRole('button', { name: 'Open menu' }).click();
-	await expect(page.getByRole('checkbox', { name: '收藏此行程' })).toBeChecked();
-	await page.getByRole('checkbox', { name: '收藏此行程' }).click();
-	await expect(page.getByRole('checkbox', { name: '收藏此行程' })).not.toBeChecked();
+	await page.getByRole('button', { name: '旅程設定', exact: true }).click();
+	await expect(page.getByRole('switch', { name: '收藏此行程' })).toBeChecked();
+	await page.getByRole('switch', { name: '收藏此行程' }).click();
+	await expect(page.getByRole('switch', { name: '收藏此行程' })).not.toBeChecked();
 });

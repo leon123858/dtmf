@@ -92,8 +92,9 @@ test('旅程主要功能：成員、帳目、分帳、還款、分享與歷史',
   await test.step('帳目版本歷史', async () => {
     await page.getByRole('button', { name: '帳目', exact: true }).click();
     await page.getByRole('button', { name: 'Open menu', exact: true }).click();
-    await page.getByRole('switch', { name: 'Record history', exact: true }).check();
-    await page.getByRole('button', { name: 'Close menu', exact: true }).click();
+    await page.getByRole('button', { name: '旅程設定', exact: true }).click();
+    await page.getByRole('switch', { name: '顯示紀錄歷史', exact: true }).check();
+    await page.getByRole('button', { name: '關閉', exact: true }).click();
     await expect(page.locator('article').filter({ has: page.getByText('Lunch', { exact: true }) }).getByRole('img', { name: '舊版本' })).toBeVisible();
     await expect(page.locator('article').filter({ has: page.getByText(repayment, { exact: true }) }).getByRole('img', { name: '已刪除' })).toBeVisible();
   });
@@ -104,7 +105,7 @@ test('旅程主要功能：成員、帳目、分帳、還款、分享與歷史',
     await expect(page.getByRole('status').filter({ hasText: '已複製行程連結' })).toBeVisible();
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(tripUrl);
     await page.getByRole('button', { name: 'Open menu', exact: true }).click();
-    await page.getByRole('button', { name: '瀏覽歷史', exact: true }).click();
+    await page.getByRole('button', { name: '歷史紀錄', exact: true }).click();
     await expect(page).toHaveURL(/\/history$/);
     await page.getByRole('button', { name: tripName, exact: true }).click();
     await expect(page).toHaveURL(tripUrl);

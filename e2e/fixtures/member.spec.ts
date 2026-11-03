@@ -29,6 +29,7 @@ async function fixture(page: Page, saved = true) {
 }
 async function login(page: Page) {
 	await page.goto('/');
+	if (await page.getByRole('dialog', { name: '旅程設定', exact: true }).isVisible()) { await page.getByRole('button', { name: '關閉', exact: true }).click(); await page.getByRole('button', { name: 'Open menu' }).click(); }
 	await page.getByRole('button', { name: '登入', exact: true }).click();
 	await page.getByRole('button', { name: '測試登入', exact: true }).click();
 	await expect(page.getByRole('button', { name: '登出', exact: true })).toBeVisible();
@@ -45,13 +46,15 @@ test('member loads once per full load, merges history, touches once and preserve
 	const timestamp = await page.evaluate(() => JSON.parse(localStorage.getItem('trip_history')!)[0].timestamp);
 	for (const tab of ['成員', '分帳', '帳目']) await page.getByRole('button', { name: tab, exact: true }).click();
 	await page.getByRole('button', { name: 'Open menu' }).click();
-	await expect(page.getByRole('checkbox', { name: '收藏此行程' })).toBeChecked();
-	await page.getByRole('checkbox', { name: '收藏此行程' }).click();
-	await expect(page.getByRole('checkbox', { name: '收藏此行程' })).not.toBeChecked();
+	await page.getByRole('button', { name: '旅程設定', exact: true }).click();
+	await expect(page.getByRole('switch', { name: '收藏此行程' })).toBeChecked();
+	await page.getByRole('switch', { name: '收藏此行程' }).click();
+	await expect(page.getByRole('switch', { name: '收藏此行程' })).not.toBeChecked();
 	expect(calls.filter(item => item === 'CurrentUser')).toHaveLength(1);
 	expect(calls.filter(item => item === 'TouchSubscribedTrip')).toHaveLength(1);
 	expect(await page.evaluate(() => JSON.parse(localStorage.getItem('trip_history')!)[0].timestamp)).toBe(timestamp);
-	await page.getByRole('button', { name: '瀏覽歷史', exact: true }).click();
+	if (await page.getByRole('dialog', { name: '旅程設定', exact: true }).isVisible()) { await page.getByRole('button', { name: '關閉', exact: true }).click(); await page.getByRole('button', { name: 'Open menu' }).click(); }
+	await page.getByRole('button', { name: '歷史紀錄', exact: true }).click();
 	await expect(page.getByRole('button', { name: '旅程', exact: true })).toBeVisible();
 	await page.getByRole('button', { name: '收藏', exact: true }).click();
 	await expect(page.getByRole('button', { name: '旅程', exact: true })).toHaveCount(0);
@@ -64,8 +67,10 @@ test('mobile drawer closes before keyboard-accessible login dialog; anonymous fa
 	await fixture(page, false);
 	await page.goto(`/trip/${id}`);
 	await page.getByRole('button', { name: 'Open menu' }).click();
-	await expect(page.getByRole('checkbox', { name: '收藏此行程' })).toBeDisabled();
+	await page.getByRole('button', { name: '旅程設定', exact: true }).click();
+	await expect(page.getByRole('switch', { name: '收藏此行程' })).toBeDisabled();
 	await expect(page.getByText('登入後可收藏')).toBeVisible();
+	if (await page.getByRole('dialog', { name: '旅程設定', exact: true }).isVisible()) { await page.getByRole('button', { name: '關閉', exact: true }).click(); await page.getByRole('button', { name: 'Open menu' }).click(); }
 	await page.getByRole('button', { name: '登入', exact: true }).click();
 	await expect(page.locator('dialog[open]')).toHaveCount(1);
 	await expect(page.getByRole('button', { name: '使用 Google 登入' })).toBeFocused();
@@ -90,9 +95,10 @@ test('initialization failure retries and a failed favorite leaves checkbox uncha
 	await expect.poll(() => loads).toBe(2);
 	await page.goto(`/trip/${id}`);
 	await page.getByRole('button', { name: 'Open menu' }).click();
-	await page.getByRole('checkbox', { name: '收藏此行程' }).click();
+	await page.getByRole('button', { name: '旅程設定', exact: true }).click();
+	await page.getByRole('switch', { name: '收藏此行程' }).click();
 	await expect(page.getByText('收藏同步失敗，請重試。')).toBeVisible();
-	await expect(page.getByRole('checkbox', { name: '收藏此行程' })).not.toBeChecked();
+	await expect(page.getByRole('switch', { name: '收藏此行程' })).not.toBeChecked();
 });
 
 test('late member response after logout cannot restore favorites', async ({ page }) => {
@@ -104,6 +110,7 @@ test('late member response after logout cannot restore favorites', async ({ page
 	});
 	await login(page);
 	await expect.poll(() => !!release).toBe(true);
+	if (await page.getByRole('dialog', { name: '旅程設定', exact: true }).isVisible()) { await page.getByRole('button', { name: '關閉', exact: true }).click(); await page.getByRole('button', { name: 'Open menu' }).click(); }
 	await page.getByRole('button', { name: '登出', exact: true }).click();
 	await release!();
 	await page.getByRole('link', { name: '歷史紀錄', exact: true }).click();
@@ -149,6 +156,7 @@ test('GitHub OAuth preserves legal return location and exposes no internal user 
 	await page.route('**/backend/auth/exchange', route => route.fulfill({ json: { ...tokens, returnTo: '/history?source=saved#recent' } }));
 	await page.goto('/history?source=saved#recent');
 	await page.getByRole('button', { name: 'Open menu' }).click();
+	if (await page.getByRole('dialog', { name: '旅程設定', exact: true }).isVisible()) { await page.getByRole('button', { name: '關閉', exact: true }).click(); await page.getByRole('button', { name: 'Open menu' }).click(); }
 	await page.getByRole('button', { name: '登入', exact: true }).click();
 	await page.screenshot({ path: testInfo.outputPath('login-dialog.png') });
 	await page.getByRole('button', { name: '使用 GitHub 登入' }).click();
@@ -168,7 +176,9 @@ test('a new login waits for the previous query barrier and ignores its result', 
 	});
 	await login(page);
 	await expect.poll(() => !!release).toBe(true);
+	if (await page.getByRole('dialog', { name: '旅程設定', exact: true }).isVisible()) { await page.getByRole('button', { name: '關閉', exact: true }).click(); await page.getByRole('button', { name: 'Open menu' }).click(); }
 	await page.getByRole('button', { name: '登出', exact: true }).click();
+	if (await page.getByRole('dialog', { name: '旅程設定', exact: true }).isVisible()) { await page.getByRole('button', { name: '關閉', exact: true }).click(); await page.getByRole('button', { name: 'Open menu' }).click(); }
 	await page.getByRole('button', { name: '登入', exact: true }).click();
 	await page.getByRole('button', { name: '測試登入', exact: true }).click();
 	expect(loads).toBe(1);
@@ -190,18 +200,22 @@ test('a delayed favorite mutation cannot overwrite a new login', async ({ page }
 	await login(page);
 	await page.goto(`/trip/${id}`);
 	await page.getByRole('button', { name: 'Open menu' }).click();
-	const checkbox = page.getByRole('checkbox', { name: '收藏此行程' });
+	await page.getByRole('button', { name: '旅程設定', exact: true }).click();
+	const checkbox = page.getByRole('switch', { name: '收藏此行程' });
 	await expect(checkbox).toBeEnabled();
 	await checkbox.click();
 	await expect.poll(() => !!release).toBe(true);
+	if (await page.getByRole('dialog', { name: '旅程設定', exact: true }).isVisible()) { await page.getByRole('button', { name: '關閉', exact: true }).click(); await page.getByRole('button', { name: 'Open menu' }).click(); }
 	await page.getByRole('button', { name: '登出', exact: true }).click();
 	// Logout clears protected UI immediately even while the old write holds the barrier.
 	await expect(page.getByRole('heading', { name: '旅程', exact: true })).toHaveCount(0);
 	await release!();
 	await page.getByRole('button', { name: 'Open menu' }).click();
+	if (await page.getByRole('dialog', { name: '旅程設定', exact: true }).isVisible()) { await page.getByRole('button', { name: '關閉', exact: true }).click(); await page.getByRole('button', { name: 'Open menu' }).click(); }
 	await page.getByRole('button', { name: '登入', exact: true }).click();
 	await page.getByRole('button', { name: '測試登入', exact: true }).click();
 	await page.getByRole('button', { name: 'Open menu' }).click();
+	await page.getByRole('button', { name: '旅程設定', exact: true }).click();
 	await expect(checkbox).toBeEnabled();
 	await expect(checkbox).not.toBeChecked();
 });
@@ -226,15 +240,17 @@ test('touches from consecutive trip entries serialize and retain the complete fa
 	await page.getByRole('button', { name: '第一個收藏', exact: true }).click();
 	await expect.poll(() => touches.length).toBe(1);
 	await page.getByRole('button', { name: 'Open menu' }).click();
-	await page.getByRole('button', { name: '瀏覽歷史', exact: true }).click();
+	if (await page.getByRole('dialog', { name: '旅程設定', exact: true }).isVisible()) { await page.getByRole('button', { name: '關閉', exact: true }).click(); await page.getByRole('button', { name: 'Open menu' }).click(); }
+	await page.getByRole('button', { name: '歷史紀錄', exact: true }).click();
 	await page.getByRole('button', { name: '第二個收藏', exact: true }).click();
 	expect(touches).toEqual([id]);
 	await release!();
 	await expect(page.getByRole('heading', { name: '旅程', exact: true })).toBeVisible();
 	await expect.poll(() => touches).toEqual([id, secondId]);
 	await page.getByRole('button', { name: 'Open menu' }).click();
-	await expect(page.getByRole('checkbox', { name: '收藏此行程' })).toBeChecked();
-	await expect(page.getByRole('checkbox', { name: '收藏此行程' })).toBeEnabled();
+	await page.getByRole('button', { name: '旅程設定', exact: true }).click();
+	await expect(page.getByRole('switch', { name: '收藏此行程' })).toBeChecked();
+	await expect(page.getByRole('switch', { name: '收藏此行程' })).toBeEnabled();
 });
 
 test('subscribe change synchronizes history without reloading CurrentUser', async ({ page }) => {
@@ -242,13 +258,15 @@ test('subscribe change synchronizes history without reloading CurrentUser', asyn
 	await login(page);
 	await page.goto(`/trip/${id}`);
 	await page.getByRole('button', { name: 'Open menu' }).click();
-	const checkbox = page.getByRole('checkbox', { name: '收藏此行程' });
+	await page.getByRole('button', { name: '旅程設定', exact: true }).click();
+	const checkbox = page.getByRole('switch', { name: '收藏此行程' });
 	await expect(checkbox).toBeEnabled();
 	const loads = calls.filter(call => call === 'CurrentUser').length;
 	await checkbox.click();
 	await expect(checkbox).toBeChecked();
 	await expect(checkbox).toBeEnabled();
-	await page.getByRole('button', { name: '瀏覽歷史', exact: true }).click();
+	if (await page.getByRole('dialog', { name: '旅程設定', exact: true }).isVisible()) { await page.getByRole('button', { name: '關閉', exact: true }).click(); await page.getByRole('button', { name: 'Open menu' }).click(); }
+	await page.getByRole('button', { name: '歷史紀錄', exact: true }).click();
 	await page.getByRole('button', { name: '收藏', exact: true }).click();
 	await expect(page.getByRole('button', { name: '旅程', exact: true })).toBeVisible();
 	expect(calls.filter(call => call === 'CurrentUser')).toHaveLength(loads);
@@ -263,11 +281,29 @@ test('a successful mutation for another user cannot update favorites', async ({ 
 	await login(page);
 	await page.goto(`/trip/${id}`);
 	await page.getByRole('button', { name: 'Open menu' }).click();
-	const checkbox = page.getByRole('checkbox', { name: '收藏此行程' });
+	await page.getByRole('button', { name: '旅程設定', exact: true }).click();
+	const checkbox = page.getByRole('switch', { name: '收藏此行程' });
 	await expect(checkbox).toBeEnabled();
 	const loads = calls.filter(call => call === 'CurrentUser').length;
 	await checkbox.click();
 	await expect(page.getByText('收藏同步失敗，請重試。')).toBeVisible();
 	await expect(checkbox).not.toBeChecked();
 	expect(calls.filter(call => call === 'CurrentUser')).toHaveLength(loads);
+});
+
+test('profile navigation depends on login even when member initialization fails', async ({ page }) => {
+ await fixture(page);
+ await page.route('**/query', route => route.request().postDataJSON().operationName === 'CurrentUser' ? route.fulfill({ status: 503, json: {} }) : route.fallback());
+ await page.goto('/');
+ await expect(page.getByRole('link', { name: '個人資料', exact: true })).toHaveCount(0);
+ await page.getByRole('button', { name: '登入', exact: true }).click();
+ await page.getByRole('button', { name: '測試登入', exact: true }).click();
+ await expect(page.getByRole('link', { name: '個人資料', exact: true })).toBeVisible();
+ await page.goto(`/trip/${id}`);
+ await page.getByRole('button', { name: 'Open menu' }).click();
+ const menu = page.getByRole('dialog', { name: '選單', exact: true });
+ await expect(menu.locator('nav button')).toHaveText(['個人資料', '首頁', '歷史紀錄', '專案', '提案', '旅程設定']);
+ await expect(menu.getByText('已登入', { exact: true })).toHaveCount(0);
+ await menu.getByRole('button', { name: '個人資料', exact: true }).click();
+ await expect(page).toHaveURL(/\/profile$/);
 });

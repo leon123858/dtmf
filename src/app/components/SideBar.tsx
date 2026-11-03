@@ -1,9 +1,7 @@
-import { useContext, useId } from 'react';
+import { useContext, useId, useRef } from 'react';
 import { SingleTripContext } from '../context/SingleTripProvider';
-import { useMember } from '../context/MemberProvider';
 import { useAuth } from '../context/AuthProvider';
 import { TripSettings } from './TripSettings';
-import { TripFavorite } from './TripFavorite';
 import { AuthControls } from './AuthControls';
 import { ModalDialog } from './ModalDialog';
 import { useRouter } from 'next/navigation';
@@ -14,6 +12,8 @@ import {
 	DocumentDuplicateIcon,
 	QuestionMarkCircleIcon,
 	ArchiveBoxArrowDownIcon,
+	Cog6ToothIcon,
+	UserCircleIcon,
 } from '@heroicons/react/24/solid';
 
 export interface SideBarProps {
@@ -28,12 +28,21 @@ export const SideBar: React.FC<SideBarProps> = ({
 	name,
 }) => {
 	const router = useRouter();
- const member = useMember();
- const auth = useAuth();
+	const menuButton = useRef<HTMLButtonElement>(null);
+	const auth = useAuth();
 
 	const context = useContext(SingleTripContext);
 	const labelId = useId();
 	const navItems = [
+		...(auth.status === 'authenticated'
+			? [
+					{
+						icon: <UserCircleIcon className='h-6 w-6' />,
+						text: '個人資料',
+						func: () => router.push('/profile'),
+					},
+				]
+			: []),
 		{
 			icon: <HomeIcon className='h-6 w-6' />,
 			text: '首頁',
@@ -41,7 +50,7 @@ export const SideBar: React.FC<SideBarProps> = ({
 		},
 		{
 			icon: <ArchiveBoxArrowDownIcon className='h-6 w-6' />,
-			text: '瀏覽歷史',
+			text: '歷史紀錄',
 			func: () => router.push('/history'),
 		},
 		{
@@ -58,6 +67,15 @@ export const SideBar: React.FC<SideBarProps> = ({
 				window.open('https://forms.gle/RJgDWsx2wCrha3TN8', '_blank');
 			},
 		},
+		...(context
+			? [
+					{
+						icon: <Cog6ToothIcon className='h-6 w-6' />,
+						text: '旅程設定',
+						func: () => context.setSettingsOpen(true),
+					},
+				]
+			: []),
 	];
 
 	return (
@@ -85,11 +103,7 @@ export const SideBar: React.FC<SideBarProps> = ({
 					<p className='mb-6 break-words [overflow-wrap:anywhere] font-semibold'>
 						{name}
 					</p>
-					{auth.status === 'authenticated' && <div className='mb-4 space-y-2'>
-      <p className='break-words'>{member.user?.name || '已登入'}</p>
-     </div>}
-     {context && <button className='mb-4 w-full rounded-lg p-3 text-left hover:bg-gray-700' onClick={() => { setIsOpen(false); context.setSettingsOpen(true); }}>旅程設定</button>}
-     <nav>
+					<nav>
 						<ul>
 							{navItems.map((item, index) => (
 								<li key={index} className='mb-2'>
@@ -108,27 +122,6 @@ export const SideBar: React.FC<SideBarProps> = ({
 							))}
 						</ul>
 					</nav>
-					{context && (
-						<label className='mt-6 border-t border-gray-600 pt-5 flex items-center justify-between gap-3 cursor-pointer'>
-							<span className='text-sm'>
-								Record history 🕰️
-								<span className='block text-xs text-gray-300 mt-1'>
-									Include old versions and deleted records
-								</span>
-							</span>
-							<input
-								type='checkbox'
-								role='switch'
-								aria-label='Record history'
-								checked={context.showHistory}
-								onChange={(event) =>
-									context.setShowHistory(event.target.checked)
-								}
-								className='h-5 w-5 shrink-0 accent-blue-500'
-							/>
-						</label>
-					)}
-					{context && <TripFavorite tripId={context.tripId} name={name} />}
 					<div className='mt-auto pt-6'>
 						<div className='border-t border-gray-600 pt-5'>
 							<AuthControls beforeLogin={() => setIsOpen(false)} />
@@ -136,12 +129,21 @@ export const SideBar: React.FC<SideBarProps> = ({
 					</div>
 				</div>
 			</ModalDialog>
-			{context && <TripSettings open={context.settingsOpen} close={() => context.setSettingsOpen(false)} />}
+			{context && (
+				<TripSettings
+					open={context.settingsOpen}
+					close={() => {
+						context.setSettingsOpen(false);
+						requestAnimationFrame(() => menuButton.current?.focus());
+					}}
+				/>
+			)}
 			<div className='flex flex-1 min-w-0 items-center gap-2'>
 				<button
 					onClick={() => {
 						setIsOpen(!isOpen);
 					}}
+					ref={menuButton}
 					aria-label='Open menu'
 					aria-expanded={isOpen}
 					className='shrink-0 text-gray-700 text-2xl font-bold rounded-lg hover:bg-gray-300 flex h-11 w-11 items-center justify-center transition-all duration-300'
