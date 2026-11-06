@@ -24,3 +24,16 @@ body {
 	color: var(--foreground);
 	font-family: Arial, Helvetica, sans-serif;
 }
+
+@keyframes trip-panel-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.trip-panel-enter {
+  animation: trip-panel-enter 180ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trip-panel-enter { animation: none; }
+}

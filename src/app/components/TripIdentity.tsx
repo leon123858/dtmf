@@ -62,7 +62,7 @@ export function TripIdentity() {
 			: member.status === 'error' ? <><p role='alert'>會員載入失敗。</p><button onClick={() => void member.retry()}>重試載入會員</button></>
 				: bindingError ? <><p role='alert'>{bindingError.message}</p><button onClick={() => void context.binding.refresh().catch(() => { })}>重試載入旅程身分</button></>
 					: !ready ? <p role='status'>旅程身分載入中...</p>
-						: <><p>{binding ? binding.address ? `我的分帳身分：${binding.address.name}` : '已加入，尚未設定分帳身分' : '尚未加入旅程'}</p>
+						: <><p>{binding ? binding.address ? `我的分帳身分：${context.trip.data?.addresses.find(address => address.id === binding.address?.id)?.name ?? binding.address.name}` : '已加入，尚未設定分帳身分' : '尚未加入旅程'}</p>
 							<div className='flex flex-wrap gap-3'>
 								<button className={button} disabled={busy || member.pending > 0} onClick={() => { setError(''); setSaved(false); setMode('existing'); setAddressId(binding?.address?.id ?? ''); setName(''); setOpen(true); }}>{binding ? '設定分帳身分' : '加入旅程'}</button>
 								{binding && <button className='text-red-700' disabled={busy || member.pending > 0} onClick={() => { setError(''); setSaved(false); setLeaving(true); }}>離開旅程</button>}

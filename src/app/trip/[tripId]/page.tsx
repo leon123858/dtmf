@@ -142,12 +142,12 @@ function TripContent({ tripId }: { tripId: string }) {
                     <span role='status' className='sr-only'>{notice}</span>
                     <main ref={mainRef} tabIndex={-1} aria-label='行程內容'
                         className={`min-h-0 flex-1 px-4 py-3 outline-none ${activeTab === 'records' ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'}`}>
-                        <div hidden={activeTab !== 'records'} className={activeTab === 'records' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
+                        <div hidden={activeTab !== 'records'} className={activeTab === 'records' ? 'trip-panel-enter flex min-h-0 flex-1 flex-col' : 'hidden'}>
                             <RecordList onEdit={openRecordForm} isActive={activeTab === 'records'} />
                         </div>
-                        {activeTab === 'share' && <MoneyShare onRepay={openRecordForm} />}
-                        {activeTab === 'members' && <AddressList />}
-                        {hasDraft && <div hidden={activeTab !== 'entry'}>
+                        {activeTab === 'share' && <div className='trip-panel-enter'><MoneyShare onRepay={openRecordForm} /></div>}
+                        {activeTab === 'members' && <div className='trip-panel-enter'><AddressList /></div>}
+                        {hasDraft && <div hidden={activeTab !== 'entry'} className={activeTab === 'entry' ? 'trip-panel-enter' : undefined}>
                             <RecordForm key={draftKey} record={editingRecord}
                                 onDirty={() => { dirty.current = true; }}
                                 onBusyChange={value => { busy.current = value; }}

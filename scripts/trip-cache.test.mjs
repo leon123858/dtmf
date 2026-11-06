@@ -753,3 +753,18 @@ test('service flush waits for a mutation commit, clears only its target and neve
  assert.deepEqual(requests.map(item => item.operation.operationName), ['UpdateTrip']);
  client.stop();
 });
+
+test('display names follow bound profiles across trip snapshots without changing source names', () => {
+  const { normalizeTrip } = load('recordInput');
+  for (const [useNickname, userName, expected] of [[false, 'Profile', 'Profile'], [true, 'Profile', 'Alice'], [false, null, 'Alice'], [false, '', 'Alice'], [false, '  ', 'Alice']]) {
+    const address = { ...alice, useNickname, bind: { userId: 'u', userName } };
+    const source = { addresses: [address], records: [record()], moneyShare: [{ input: [{ amount: 1, address: alice }], output: { amount: 1, address: bob } }] };
+    const value = normalizeTrip(source);
+    assert.equal(value.addresses[0].name, expected);
+    assert.equal(value.records[0].prePayAddress.name, expected);
+    assert.equal(value.records[0].shouldPayAddress[0].name, expected);
+    assert.equal(value.moneyShare[0].input[0].address.name, expected);
+    assert.equal(value.moneyShare[0].output.address.name, 'Bob');
+    assert.equal(source.addresses[0].name, 'Alice');
+  }
+});
