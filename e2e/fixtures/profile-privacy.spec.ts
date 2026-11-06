@@ -189,14 +189,14 @@ test('binding conflicts preserve the dialog; clearing assignment preserves membe
 	expect(operations(state, 'TouchSubscribedTrip')).toHaveLength(1);
 });
 
-test('address editor fits a keyboard viewport and restores focus on cancellation', async ({ page }) => {
+for (const mode of ['create', 'edit'] as const) test(`address ${mode} fits a keyboard viewport and restores focus on cancellation`, async ({ page }) => {
  await page.setViewportSize({ width: 390, height: 844 });
  await fixture(page, { joined: true, addressId: aliceId });
  await members(page);
- const trigger = page.getByRole('button', { name: '名稱設定', exact: true }).first();
+ const trigger = page.getByRole('button', { name: mode === 'create' ? '新增成員' : '名稱設定', exact: true }).first();
  await trigger.click();
- const dialog = page.getByRole('dialog', { name: '名稱設定', exact: true });
- await expect(page.getByLabel('設定新旅程暱稱')).toBeFocused();
+ const dialog = page.getByRole('dialog', { name: mode === 'create' ? '新增成員' : '名稱設定', exact: true });
+ await expect(page.getByLabel(mode === 'create' ? '新成員名稱' : '設定新旅程暱稱')).toBeFocused();
  await page.evaluate(() => {
   Object.defineProperty(window.visualViewport!, 'height', { configurable: true, value: 360 });
   Object.defineProperty(window.visualViewport!, 'offsetTop', { configurable: true, value: 40 });
@@ -488,8 +488,33 @@ test('address creation shows a spinner only on the submitting button until the r
  try {
   const submit = page.getByRole('button', { name: '新增中...', exact: true });
   await expect(submit).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: '新增成員', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '取消', exact: true })).toBeDisabled();
   await expect(submit.locator('[aria-busy="true"]')).toBeVisible();
   await expect(submit.locator('.animate-spin')).toHaveCount(1);
  } finally { release(); }
  await expect(page.getByText('Spinner member', { exact: true })).toBeVisible();
+});
+
+test('address creation retains failed input and resets on reopening', async ({ page }) => {
+ await fixture(page);
+ await members(page);
+ await page.route('**/query', async route => {
+  if (route.request().postDataJSON()?.operationName !== 'CreateAddress') return route.fallback();
+  await route.fulfill({ json: { errors: [{ message: 'Create failed', extensions: { code: 'CONFLICT' } }] } });
+ });
+ const trigger = page.getByRole('button', { name: '新增成員', exact: true });
+ await trigger.click();
+ const dialog = page.getByRole('dialog', { name: '新增成員', exact: true });
+ await dialog.getByRole('button', { name: '新增', exact: true }).click();
+ await expect(dialog.getByRole('alert')).toBeVisible();
+ await dialog.getByLabel('新成員名稱').fill('Retained name');
+ await dialog.getByLabel('新成員名稱').press('Enter');
+ await expect(dialog.getByRole('alert')).toContainText('暱稱已存在');
+ await expect(dialog.getByLabel('新成員名稱')).toHaveValue('Retained name');
+ await dialog.getByRole('button', { name: '取消', exact: true }).click();
+ await trigger.click();
+ await expect(dialog.getByLabel('新成員名稱')).toHaveValue('');
+ await expect(dialog.getByRole('alert')).toHaveCount(0);
 });

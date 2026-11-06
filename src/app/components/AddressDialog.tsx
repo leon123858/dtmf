@@ -3,8 +3,8 @@
 import { ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { ModalDialog } from './ModalDialog';
 
-export function AddressEditDialog({ children, onClose, busy, error, returnFocus }: {
- children: ReactNode; onClose: () => void; busy: boolean; error: string; returnFocus: HTMLButtonElement | null;
+export function AddressDialog({ title, children, onClose, busy, error, returnFocus }: {
+ title: string; children: ReactNode; onClose: () => void; busy: boolean; error: string; returnFocus: HTMLButtonElement | null;
 }) {
  const titleId = useId();
  const content = useRef<HTMLDivElement>(null);
@@ -29,7 +29,7 @@ export function AddressEditDialog({ children, onClose, busy, error, returnFocus 
     else if (box.top < bounds.top) parent.scrollTop -= bounds.top - box.top;
    });
   };
-  content.current?.querySelector<HTMLInputElement>('input[placeholder="留空保留原有暱稱"]')?.focus({ preventScroll: true });
+  content.current?.querySelector<HTMLInputElement>('input[data-address-name]')?.focus({ preventScroll: true });
   update();
   visual?.addEventListener('resize', update);
   visual?.addEventListener('scroll', update);
@@ -49,7 +49,7 @@ export function AddressEditDialog({ children, onClose, busy, error, returnFocus 
   style={{ top: (viewport?.top ?? 0) + 16, maxHeight: viewport ? Math.max(0, viewport.height - 32) : 'calc(100dvh - 2rem)' }}
   className='fixed inset-x-0 bottom-auto mx-auto my-0 w-[calc(100%-2rem)] max-w-md overflow-hidden rounded-xl bg-white p-0 text-gray-800 backdrop:bg-black/50'>
   <div ref={content} className='overflow-y-auto overscroll-contain p-5' style={{ maxHeight: viewport ? Math.max(0, viewport.height - 32) : 'calc(100dvh - 2rem)' }}>
-   <h2 id={titleId} className='mb-4 text-xl font-bold'>名稱設定</h2>
+   <h2 id={titleId} className='mb-4 text-xl font-bold'>{title}</h2>
    {error && <p role='alert' className='mb-3 text-red-700'>{error}</p>}
    {children}
   </div>

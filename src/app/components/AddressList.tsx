@@ -5,7 +5,7 @@ import { useContext, useRef, useState } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { useCreateAddress, useUpdateAddress, useDeleteAddress } from '@/app/lib/tripApi/hooks';
 import { validateName } from '@/app/lib/utils';
-import { AddressEditDialog } from './AddressEditDialog';
+import { AddressDialog } from './AddressDialog';
 import { TripIdentity } from './TripIdentity';
 
 export const AddressList = () => {
@@ -14,9 +14,7 @@ export const AddressList = () => {
 	const create = useCreateAddress(context.tripId);
 	const update = useUpdateAddress(context.tripId);
 	const remove = useDeleteAddress(context.tripId);
-	const [adding, setAdding] = useState(false);
-	const [newName, setNewName] = useState('');
-	const [editing, setEditing] = useState<{ id: string; name: string; useNickname: boolean } | null>(null);
+	const [editing, setEditing] = useState<{ id: string | null; name: string; useNickname: boolean } | null>(null);
 	const [error, setError] = useState('');
 	const [saved, setSaved] = useState(false);
 	const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -31,9 +29,9 @@ export const AddressList = () => {
 			await operation();
 			if (refresh) {
 				try { await context.synchronize(); }
-				catch { setEditing(null); setAdding(false); setSaved(true); setError('已儲存，資料更新失敗，請重試。'); return; }
+				catch { setEditing(null); setSaved(true); setError('已儲存，資料更新失敗，請重試。'); return; }
 			}
-			setEditing(null); setAdding(false); setNewName('');
+			setEditing(null);
 		} catch (cause) {
 			const conflict = cause instanceof Error && 'code' in cause && cause.code === 'CONFLICT';
 			setError(conflict ? operationKind === 'delete' ? '此成員已被帳號綁定或被帳目引用，無法移除。' : '暱稱已存在，請換一個名稱。' : cause instanceof Error ? cause.message : '成員操作失敗，請重試。');
@@ -42,8 +40,10 @@ export const AddressList = () => {
 	};
 	const save = () => {
 		if (!editing) return;
-		if (editing.name) { const validation = validateName(editing.name); if (validation) { setError(validation); return; } }
-		void run(() => update.execute({ addressId: editing.id, input: { useNickname: editing.useNickname, ...(editing.name ? { name: editing.name } : {}) } }), true);
+		if (editing.id === null || editing.name) { const validation = validateName(editing.name); if (validation) { setError(validation); return; } }
+		if (editing.id === null) { void run(() => create.execute({ input: { name: editing.name } })); return; }
+		const addressId = editing.id;
+		void run(() => update.execute({ addressId, input: { useNickname: editing.useNickname, ...(editing.name ? { name: editing.name } : {}) } }), true);
 	};
 	return <>
 		<TripIdentity />
@@ -59,17 +59,14 @@ export const AddressList = () => {
 				</div>
 
 			</div>)}
-			{adding ? <fieldset disabled={busy} className='space-y-3'>
-				<label className='block'>新成員名稱<input autoFocus className='mt-1 w-full rounded border p-2' placeholder='輸入新成員名稱' value={newName} onChange={event => setNewName(event.target.value)} /></label>
-				<div className='flex gap-4'><button onClick={() => { const validation = validateName(newName); if (validation) { setError(validation); return; } void run(() => create.execute({ input: { name: newName } })); }}><OperationFeedback pending={busy}>{busy ? '新增中...' : '新增'}</OperationFeedback></button><button onClick={() => setAdding(false)}>取消</button></div>
-			</fieldset> : <button disabled={busy} onClick={() => setAdding(true)} className='w-full rounded-lg bg-blue-100 px-4 py-2 font-semibold text-blue-700'>新增成員</button>}
-				{editing && <AddressEditDialog returnFocus={editTrigger.current} error={error} onClose={() => setEditing(null)} busy={busy}><fieldset disabled={busy} className='space-y-3'>
-					<p className='text-sm'>目前顯示名稱：{trip.addresses.find(address => address.id === editing.id)?.name}</p>
-					<label className='block'><input type='checkbox' checked={editing.useNickname} onChange={event => setEditing({ ...editing, useNickname: event.target.checked })} /> 固定使用旅程暱稱</label>
-					<label className='block'>設定新旅程暱稱<input autoFocus className='mt-1 w-full rounded border p-2' value={editing.name} placeholder='留空保留原有暱稱' onChange={event => setEditing({ ...editing, name: event.target.value })} onKeyDown={event => { if (event.key === 'Enter') save(); if (event.key === 'Escape') setEditing(null); }} /></label>
-					<p className='text-xs text-gray-600'>關閉固定暱稱時，已綁定且有個人名稱的成員會顯示個人名稱。名稱變更也會套用於歷史帳目。</p>
-					<div className='flex gap-4'><button className='text-blue-700' onClick={save}><OperationFeedback pending={busy}>{busy ? '儲存中...' : '儲存'}</OperationFeedback></button><button onClick={() => setEditing(null)}>取消</button></div>
-				</fieldset></AddressEditDialog>}
+			<button disabled={busy} onClick={event => { editTrigger.current = event.currentTarget; setEditing({ id: null, name: '', useNickname: false }); setError(''); }} className='w-full rounded-lg bg-blue-100 px-4 py-2 font-semibold text-blue-700'>新增成員</button>
+				{editing && <AddressDialog title={editing.id === null ? '新增成員' : '名稱設定'} returnFocus={editTrigger.current} error={error} onClose={() => setEditing(null)} busy={busy}><form onSubmit={event => { event.preventDefault(); save(); }}><fieldset disabled={busy} className='space-y-3'>
+					{editing.id !== null && <><p className='text-sm'>目前顯示名稱：{trip.addresses.find(address => address.id === editing.id)?.name}</p>
+					<label className='block'><input type='checkbox' checked={editing.useNickname} onChange={event => setEditing({ ...editing, useNickname: event.target.checked })} /> 固定使用旅程暱稱</label></>}
+					<label className='block'>{editing.id === null ? '新成員名稱' : '設定新旅程暱稱'}<input autoFocus data-address-name className='mt-1 w-full rounded border p-2' value={editing.name} placeholder={editing.id === null ? '輸入新成員名稱' : '留空保留原有暱稱'} onChange={event => setEditing({ ...editing, name: event.target.value })} /></label>
+					{editing.id !== null && <p className='text-xs text-gray-600'>關閉固定暱稱時，已綁定且有個人名稱的成員會顯示個人名稱。名稱變更也會套用於歷史帳目。</p>}
+					<div className='flex gap-4'><button type='submit' className='text-blue-700'><OperationFeedback pending={busy}>{editing.id === null ? busy ? '新增中...' : '新增' : busy ? '儲存中...' : '儲存'}</OperationFeedback></button><button type='button' onClick={() => setEditing(null)}>取消</button></div>
+				</fieldset></form></AddressDialog>}
 		</section>
 	</>;
 };
