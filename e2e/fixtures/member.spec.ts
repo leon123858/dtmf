@@ -40,7 +40,7 @@ test('member loads once per full load, merges history, touches once and preserve
 	await login(page);
 	await expect.poll(() => calls.filter(item => item === 'CurrentUser').length).toBe(1);
 	await page.getByRole('link', { name: '歷史紀錄', exact: true }).click();
-	await page.getByRole('button', { name: '帳號名稱', exact: true }).click();
+	await page.getByRole('link', { name: '帳號名稱', exact: true }).click();
 	await expect(page.getByRole('heading', { name: '旅程', exact: true })).toBeVisible();
 	await expect.poll(() => calls.filter(item => item === 'TouchSubscribedTrip').length).toBe(1);
 	const timestamp = await page.evaluate(() => JSON.parse(localStorage.getItem('trip_history')!)[0].timestamp);
@@ -54,10 +54,10 @@ test('member loads once per full load, merges history, touches once and preserve
 	expect(calls.filter(item => item === 'TouchSubscribedTrip')).toHaveLength(1);
 	expect(await page.evaluate(() => JSON.parse(localStorage.getItem('trip_history')!)[0].timestamp)).toBe(timestamp);
 	if (await page.getByRole('dialog', { name: '旅程設定', exact: true }).isVisible()) { await page.getByRole('button', { name: '關閉', exact: true }).click(); await page.getByRole('button', { name: 'Open menu' }).click(); }
-	await page.getByRole('button', { name: '歷史紀錄', exact: true }).click();
-	await expect(page.getByRole('button', { name: '旅程', exact: true })).toBeVisible();
+	await page.getByRole('link', { name: '歷史紀錄', exact: true }).click();
+	await expect(page.getByRole('link', { name: '旅程', exact: true })).toBeVisible();
 	await page.getByRole('button', { name: '收藏', exact: true }).click();
-	await expect(page.getByRole('button', { name: '旅程', exact: true })).toHaveCount(0);
+	await expect(page.getByRole('link', { name: '旅程', exact: true })).toHaveCount(0);
 	await page.reload();
 	await expect.poll(() => calls.filter(item => item === 'CurrentUser').length).toBe(2);
 });
@@ -114,7 +114,7 @@ test('late member response after logout cannot restore favorites', async ({ page
 	await page.getByRole('button', { name: '登出', exact: true }).click();
 	await release!();
 	await page.getByRole('link', { name: '歷史紀錄', exact: true }).click();
-	await expect(page.getByRole('button', { name: '延遲收藏', exact: true })).toHaveCount(0);
+	await expect(page.getByRole('link', { name: '延遲收藏', exact: true })).toHaveCount(0);
 	expect(await page.evaluate(() => localStorage.getItem('dtmf:auth'))).toBeNull();
 });
 
@@ -161,7 +161,7 @@ test('GitHub OAuth preserves legal return location and exposes no internal user 
 	await page.screenshot({ path: testInfo.outputPath('login-dialog.png') });
 	await page.getByRole('button', { name: '使用 GitHub 登入' }).click();
 	await expect(page).toHaveURL('http://127.0.0.1:3100/history?source=saved#recent');
-	await expect(page.getByRole('button', { name: '帳號名稱', exact: true })).toBeVisible();
+	await expect(page.getByRole('link', { name: '帳號名稱', exact: true })).toBeVisible();
 	await expect(page.getByText('internal-user-id')).toHaveCount(0);
 	await page.screenshot({ path: testInfo.outputPath('favorites-history.png') });
 });
@@ -185,9 +185,9 @@ test('a new login waits for the previous query barrier and ignores its result', 
 	await release!();
 	await expect.poll(() => loads).toBe(2);
 	await page.getByRole('link', { name: '歷史紀錄', exact: true }).click();
-	await expect(page.getByRole('button', { name: '帳號名稱', exact: true })).toBeVisible();
-	await expect(page.getByRole('button', { name: '上一個帳號收藏', exact: true })).toHaveCount(0);
-	await expect(page.getByRole('button', { name: '帳號名稱', exact: true })).toBeVisible();
+	await expect(page.getByRole('link', { name: '帳號名稱', exact: true })).toBeVisible();
+	await expect(page.getByRole('link', { name: '上一個帳號收藏', exact: true })).toHaveCount(0);
+	await expect(page.getByRole('link', { name: '帳號名稱', exact: true })).toBeVisible();
 });
 
 test('a delayed favorite mutation cannot overwrite a new login', async ({ page }) => {
@@ -237,12 +237,12 @@ test('touches from consecutive trip entries serialize and retain the complete fa
 	});
 	await login(page);
 	await page.getByRole('link', { name: '歷史紀錄', exact: true }).click();
-	await page.getByRole('button', { name: '第一個收藏', exact: true }).click();
+	await page.getByRole('link', { name: '第一個收藏', exact: true }).click();
 	await expect.poll(() => touches.length).toBe(1);
 	await page.getByRole('button', { name: 'Open menu' }).click();
 	if (await page.getByRole('dialog', { name: '旅程設定', exact: true }).isVisible()) { await page.getByRole('button', { name: '關閉', exact: true }).click(); await page.getByRole('button', { name: 'Open menu' }).click(); }
-	await page.getByRole('button', { name: '歷史紀錄', exact: true }).click();
-	await page.getByRole('button', { name: '第二個收藏', exact: true }).click();
+	await page.getByRole('link', { name: '歷史紀錄', exact: true }).click();
+	await page.getByRole('link', { name: '第二個收藏', exact: true }).click();
 	expect(touches).toEqual([id]);
 	await release!();
 	await expect(page.getByRole('heading', { name: '旅程', exact: true })).toBeVisible();
@@ -266,9 +266,9 @@ test('subscribe change synchronizes history without reloading CurrentUser', asyn
 	await expect(checkbox).toBeChecked();
 	await expect(checkbox).toBeEnabled();
 	if (await page.getByRole('dialog', { name: '旅程設定', exact: true }).isVisible()) { await page.getByRole('button', { name: '關閉', exact: true }).click(); await page.getByRole('button', { name: 'Open menu' }).click(); }
-	await page.getByRole('button', { name: '歷史紀錄', exact: true }).click();
+	await page.getByRole('link', { name: '歷史紀錄', exact: true }).click();
 	await page.getByRole('button', { name: '收藏', exact: true }).click();
-	await expect(page.getByRole('button', { name: '旅程', exact: true })).toBeVisible();
+	await expect(page.getByRole('link', { name: '旅程', exact: true })).toBeVisible();
 	expect(calls.filter(call => call === 'CurrentUser')).toHaveLength(loads);
 	expect(calls.filter(call => call === 'SubscribeTrip')).toHaveLength(1);
 });
@@ -302,8 +302,8 @@ test('profile navigation depends on login even when member initialization fails'
  await page.goto(`/trip/${id}`);
  await page.getByRole('button', { name: 'Open menu' }).click();
  const menu = page.getByRole('dialog', { name: '選單', exact: true });
- await expect(menu.locator('nav button')).toHaveText(['個人資料', '首頁', '歷史紀錄', '專案', '提案', '旅程設定']);
+ await expect(menu.locator('nav a, nav button')).toHaveText(['個人資料', '首頁', '歷史紀錄', '專案', '提案', '旅程設定']);
  await expect(menu.getByText('已登入', { exact: true })).toHaveCount(0);
- await menu.getByRole('button', { name: '個人資料', exact: true }).click();
+ await menu.getByRole('link', { name: '個人資料', exact: true }).click();
  await expect(page).toHaveURL(/\/profile$/);
 });

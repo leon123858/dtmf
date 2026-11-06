@@ -1,4 +1,6 @@
 'use client';
+import { OperationFeedback } from '@/app/components/OperationFeedback';
+
 import { useContext, useEffect, useId, useRef, useState } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { useUpdateTrip } from '@/app/lib/tripApi/hooks';
@@ -254,7 +256,7 @@ export function TripSettings({
 						onClick={() => void save()}
 						className='rounded-lg bg-blue-600 px-4 py-2 text-white disabled:opacity-40'
 					>
-						{busy ? '儲存中...' : '確認切換'}
+						<OperationFeedback pending={busy}>{busy ? '儲存中...' : '確認切換'}</OperationFeedback>
 					</button>
 				</div>
 			</ModalDialog>

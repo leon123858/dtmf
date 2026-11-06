@@ -25,12 +25,12 @@ test('real member login, automatic favorite on creation, reload and logout', asy
 	await expect(page.getByRole('switch', { name: '收藏此行程' })).toBeChecked();
 	expect(subscribeAttempts).toBe(0);
 	if (await page.getByRole('dialog', { name: '旅程設定', exact: true }).isVisible()) { await page.getByRole('button', { name: '關閉', exact: true }).click(); await page.getByRole('button', { name: 'Open menu' }).click(); }
-	await page.getByRole('button', { name: '歷史紀錄', exact: true }).click();
+	await page.getByRole('link', { name: '歷史紀錄', exact: true }).click();
 	await expect(page).toHaveURL(/\/history$/);
 	await page.reload();
 	await page.getByRole('button', { name: '收藏', exact: true }).click();
-	await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
-	await page.getByRole('button', { name, exact: true }).click();
+	await expect(page.getByRole('link', { name, exact: true })).toBeVisible();
+	await page.getByRole('link', { name, exact: true }).click();
 	await page.getByRole('button', { name: 'Open menu' }).click();
 	await page.getByRole('button', { name: '旅程設定', exact: true }).click();
 	await page.getByRole('switch', { name: '收藏此行程' }).click();

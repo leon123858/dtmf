@@ -768,3 +768,9 @@ test('display names follow bound profiles across trip snapshots without changing
     assert.equal(source.addresses[0].name, 'Alice');
   }
 });
+
+test('unbound member display keeps each original address name', () => {
+ const value = load('recordInput').normalizeTrip({ addresses: [{ ...alice, name: 'List name' }], records: [record()], moneyShare: [] });
+ assert.equal(value.addresses[0].name, 'List name');
+ assert.equal(value.records[0].prePayAddress.name, 'Alice');
+});

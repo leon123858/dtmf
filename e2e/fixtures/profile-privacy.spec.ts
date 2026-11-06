@@ -335,13 +335,13 @@ test('profile name changes refresh bound names and historical records on returni
 	await page.getByRole('switch', { name: '顯示紀錄歷史', exact: true }).check();
 	await page.getByRole('button', { name: '關閉', exact: true }).click();
 	await page.getByRole('button', { name: 'Open menu' }).click();
-	await page.getByRole('button', { name: '個人資料', exact: true }).click();
+	await page.getByRole('link', { name: '個人資料', exact: true }).click();
 	await page.getByLabel('個人名稱').fill('新的個人名稱');
 	await page.getByRole('button', { name: '儲存', exact: true }).click();
 	await expect(page.getByText('個人資料已儲存。')).toBeVisible();
 	await page.getByRole('button', { name: 'Open menu' }).click();
-	await page.getByRole('button', { name: '歷史紀錄', exact: true }).click();
-	await page.getByRole('button', { name: '身分測試旅程', exact: true }).click();
+	await page.getByRole('link', { name: '歷史紀錄', exact: true }).click();
+	await page.getByRole('link', { name: '身分測試旅程', exact: true }).click();
 	await page.getByRole('button', { name: '成員', exact: true }).click();
 	await expect(page.getByText('我的分帳身分：新的個人名稱', { exact: true })).toBeVisible();
 	await page.getByRole('button', { name: 'Open menu' }).click();
@@ -471,4 +471,25 @@ for (const width of [390, 1280]) test(`settings center, keyboard, cancellation a
  expect(operations(state, 'UpdateTrip')).toHaveLength(1);
  await page.keyboard.press('Escape');
  await expect(page.getByRole('button', { name: 'Open menu' })).toBeFocused();
+});
+
+test('address creation shows a spinner only on the submitting button until the response', async ({ page }) => {
+ await fixture(page);
+ await members(page);
+ let release!: () => void;
+ const waiting = new Promise<void>(resolve => { release = resolve; });
+ await page.route('**/query', async route => {
+  if (route.request().postDataJSON()?.operationName === 'CreateAddress') await waiting;
+  await route.fallback();
+ });
+ await page.getByRole('button', { name: '新增成員', exact: true }).click();
+ await page.getByLabel('新成員名稱').fill('Spinner member');
+ await page.getByRole('button', { name: '新增', exact: true }).click();
+ try {
+  const submit = page.getByRole('button', { name: '新增中...', exact: true });
+  await expect(submit).toBeDisabled();
+  await expect(submit.locator('[aria-busy="true"]')).toBeVisible();
+  await expect(submit.locator('.animate-spin')).toHaveCount(1);
+ } finally { release(); }
+ await expect(page.getByText('Spinner member', { exact: true })).toBeVisible();
 });

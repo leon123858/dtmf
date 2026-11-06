@@ -4,7 +4,8 @@ import { useAuth } from '../context/AuthProvider';
 import { TripSettings } from './TripSettings';
 import { AuthControls } from './AuthControls';
 import { ModalDialog } from './ModalDialog';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { LinkPending } from './LinkPending';
 import {
 	Bars3BottomLeftIcon,
 	ArrowLeftEndOnRectangleIcon,
@@ -27,31 +28,30 @@ export const SideBar: React.FC<SideBarProps> = ({
 	setIsOpen,
 	name,
 }) => {
-	const router = useRouter();
 	const menuButton = useRef<HTMLButtonElement>(null);
 	const auth = useAuth();
 
 	const context = useContext(SingleTripContext);
 	const labelId = useId();
-	const navItems = [
+	const navItems: { icon: React.ReactNode; text: string; href?: string; func?: () => void }[] = [
 		...(auth.status === 'authenticated'
 			? [
 					{
 						icon: <UserCircleIcon className='h-6 w-6' />,
 						text: '個人資料',
-						func: () => router.push('/profile'),
+						href: '/profile',
 					},
 				]
 			: []),
 		{
 			icon: <HomeIcon className='h-6 w-6' />,
 			text: '首頁',
-			func: () => router.push('/'),
+			href: '/',
 		},
 		{
 			icon: <ArchiveBoxArrowDownIcon className='h-6 w-6' />,
 			text: '歷史紀錄',
-			func: () => router.push('/history'),
+			href: '/history',
 		},
 		{
 			icon: <DocumentDuplicateIcon className='h-6 w-6' />,
@@ -107,17 +107,19 @@ export const SideBar: React.FC<SideBarProps> = ({
 						<ul>
 							{navItems.map((item, index) => (
 								<li key={index} className='mb-2'>
-									<button
+									{item.href ? <Link href={item.href} className='w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-700 text-left' onClick={() => { if (item.href === window.location.pathname) setIsOpen(false); }}>
+                                        {item.icon}<span className='text-lg'>{item.text}</span><LinkPending />
+                                    </Link> : <button
 										type='button'
 										className='w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-700 text-left'
 										onClick={() => {
-											item.func();
+											item.func?.();
 											setIsOpen(false);
 										}}
 									>
 										{item.icon}
 										<span className='text-lg'>{item.text}</span>
-									</button>
+									</button>}
 								</li>
 							))}
 						</ul>

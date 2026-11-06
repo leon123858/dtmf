@@ -26,8 +26,8 @@ body {
 }
 
 @keyframes trip-panel-enter {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .trip-panel-enter {
@@ -36,4 +36,13 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .trip-panel-enter { animation: none; }
+}
+
+@keyframes navigation-progress {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(400%); }
+}
+.navigation-progress { animation: navigation-progress 1s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .navigation-progress { animation: none; width: 100%; }
 }

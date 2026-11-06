@@ -1,4 +1,6 @@
 'use client';
+import { OperationFeedback } from '@/app/components/OperationFeedback';
+
 
 import React, { useState, useContext, useEffect } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
@@ -525,7 +527,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
 							type='submit'
 							className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300'
 						>
-							{saving ? 'Saving… ⏳' : submitText}
+							<OperationFeedback pending={saving}>{saving ? 'Saving…' : submitText}</OperationFeedback>
 						</button>
 					</div>
 				</fieldset>

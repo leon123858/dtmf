@@ -104,7 +104,7 @@ test('one initial query and one eligible poll, regardless of mounted readers', a
   await history(page, false);
   await expect.poll(() => state.queries.length).toBe(6);
   await page.getByRole('button', { name: 'Open menu', exact: true }).click();
-  await page.getByRole('button', { name: '首頁', exact: true }).click();
+  await page.getByRole('link', { name: '首頁', exact: true }).click();
   await expect(page).toHaveURL('/');
   await page.clock.fastForward(60_000);
   expect(state.queries.length).toBe(6);
@@ -160,7 +160,7 @@ test('slow polling holds mutations until the query commits, without extra querie
   await page.getByRole('button', { name: '編輯 Lunch', exact: true }).click();
   await page.getByLabel('項目名稱', { exact: true }).fill('Dinner');
   await page.getByRole('button', { name: '儲存變更', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Saving… ⏳', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Saving…', exact: true })).toBeDisabled();
   expect(state.mutations).toEqual([]);
   await page.clock.fastForward(60_000);
   expect(state.queries.length).toBe(2);

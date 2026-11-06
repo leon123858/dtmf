@@ -1,4 +1,6 @@
 'use client';
+import { OperationFeedback } from './OperationFeedback';
+import { useState } from 'react';
 import { StarIcon } from '@heroicons/react/24/outline';
 import { SettingSwitch } from './SettingSwitch';
 import { useContext } from 'react';
@@ -13,6 +15,7 @@ export function TripFavorite({
 	name: string;
 }) {
 	const member = useMember();
+ const [saving, setSaving] = useState(false);
 	const trip = useContext(SingleTripContext);
 	const auth = useAuth();
 	const checked = !!member.user?.subscribedTrips.some(
@@ -30,7 +33,7 @@ export function TripFavorite({
 						加入帳號收藏；收藏不代表加入旅程或取得私有旅程權限。
 					</p>
 				</div>
-				<SettingSwitch
+				<OperationFeedback pending={saving}><SettingSwitch
 					id='trip-favorite'
 					aria-label='收藏此行程'
 					aria-describedby='favorite-description'
@@ -40,7 +43,9 @@ export function TripFavorite({
 						member.status !== 'ready' ||
 						member.pending > 0
 					}
-					onChange={() =>
+					onChange={() => {
+						if (saving) return;
+						setSaving(true);
 						void member
 							.mutate(
 								checked ? 'unsubscribeTrip' : 'subscribeTrip',
@@ -51,8 +56,9 @@ export function TripFavorite({
 								if (trip?.tripId === tripId && error instanceof Error)
 									trip.revoke(error);
 							})
-					}
-				/>
+							.finally(() => setSaving(false));
+					}}
+				/></OperationFeedback>
 			</div>
 			{auth.status !== 'authenticated' && (
 				<p className='text-xs'>登入後可收藏</p>

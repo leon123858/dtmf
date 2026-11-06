@@ -351,3 +351,22 @@ test('callback waiting state and HTTP error retain the original detail', async (
 	expect(exchanges).toBe(1);
 	await page.screenshot({ path: testInfo.outputPath('callback-error.png') });
 });
+
+test('native Link displays navigation progress while the route response is delayed', async ({ page }) => {
+ let release!: () => void;
+ const gate = new Promise<void>(resolve => { release = resolve; });
+ await page.route(url => url.pathname === '/history', async route => {
+  await gate;
+  await route.continue();
+ });
+ await page.goto('/');
+ const link = page.getByRole('link', { name: '歷史紀錄', exact: true });
+ await expect(link).toHaveAttribute('href', '/history');
+ await link.click();
+ try {
+  await expect(page.getByRole('status', { name: '頁面載入中', exact: true })).toBeVisible();
+  await expect(page).toHaveURL('http://127.0.0.1:3100/');
+ } finally { release(); }
+ await expect(page).toHaveURL('http://127.0.0.1:3100/history');
+ await expect(page.getByRole('status', { name: '頁面載入中', exact: true })).toHaveCount(0);
+});

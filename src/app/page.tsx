@@ -1,3 +1,4 @@
+import { LinkPending } from '@/app/components/LinkPending';
 import Link from 'next/link';
 import { AuthControls } from './components/AuthControls';
 import { TripCreationForm } from '@/app/components/TripCreateForm';
@@ -41,7 +42,7 @@ export default async function HomePage() {
 						>
 							<BookOpenIcon className='w-5 h-5' />
 							<span>歷史紀錄</span>
-						</Link>
+						<LinkPending /></Link>
 						<HomeProfileLink />
 					</div>
 

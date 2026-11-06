@@ -13,9 +13,9 @@ export function normalizeRecord(record: RecordPayload): Record {
 }
 
 export function normalizeTrip(trip: TripPayload): Trip {
-	const names = new Map(trip.addresses.map(address => [address.id,
-		address.useNickname === false && address.bind?.userName?.trim()
-			? address.bind.userName : address.name]));
+	const names = new Map(trip.addresses
+		.filter(address => address.useNickname === false && address.bind?.userName?.trim())
+		.map(address => [address.id, address.bind!.userName!]));
 	const displayAddress = (address: Address): Address => {
 		const name = names.get(address.id) ?? address.name;
 		return name === address.name ? address : { ...address, name };

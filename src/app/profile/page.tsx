@@ -1,4 +1,6 @@
 'use client';
+import { OperationFeedback } from '@/app/components/OperationFeedback';
+
 
 import { useRef, useState } from 'react';
 import { useMember } from '@/app/context/MemberProvider';
@@ -63,6 +65,6 @@ function ProfileEditor() {
 		{error && <p role='alert' className='text-red-700'>{error}</p>}
 		<p role='status'>{notice}</p>
 		{saved && <button type='button' disabled={busy} className='underline' onClick={() => { setBusy(true); void refresh().finally(() => setBusy(false)); }}>重試更新資料</button>}
-		<button className='rounded bg-blue-600 px-4 py-3 text-white disabled:opacity-50' disabled={busy || saved || member.pending > 0 || name === (member.user?.name ?? '')}>{busy ? '儲存中...' : '儲存'}</button>
+		<button className='rounded bg-blue-600 px-4 py-3 text-white disabled:opacity-50' disabled={busy || saved || member.pending > 0 || name === (member.user?.name ?? '')}><OperationFeedback pending={busy}>{busy ? '儲存中...' : '儲存'}</OperationFeedback></button>
 	</form>;
 }

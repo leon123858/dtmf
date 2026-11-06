@@ -105,9 +105,9 @@ test('旅程主要功能：成員、帳目、分帳、還款、分享與歷史',
     await expect(page.getByRole('status').filter({ hasText: '已複製行程連結' })).toBeVisible();
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(tripUrl);
     await page.getByRole('button', { name: 'Open menu', exact: true }).click();
-    await page.getByRole('button', { name: '歷史紀錄', exact: true }).click();
+    await page.getByRole('link', { name: '歷史紀錄', exact: true }).click();
     await expect(page).toHaveURL(/\/history$/);
-    await page.getByRole('button', { name: tripName, exact: true }).click();
+    await page.getByRole('link', { name: tripName, exact: true }).click();
     await expect(page).toHaveURL(tripUrl);
     await page.reload();
     await expect(page.getByRole('heading', { name: tripName, exact: true })).toBeVisible();

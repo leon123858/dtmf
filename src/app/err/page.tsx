@@ -1,3 +1,4 @@
+import { LinkPending } from '@/app/components/LinkPending';
 import Link from 'next/link';
 import { ArrowLeftIcon } from '@heroicons/react/24/solid';
 
@@ -18,7 +19,7 @@ export default async function CustomErrPage({ searchParams }) {
 				>
 					<ArrowLeftIcon className='w-5 h-5' />
 					<span>返回首頁</span>
-				</Link>
+				<LinkPending /></Link>
 			</div>
 		</div>
 	);

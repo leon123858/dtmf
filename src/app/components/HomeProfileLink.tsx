@@ -1,4 +1,5 @@
 'use client';
+import { LinkPending } from '@/app/components/LinkPending';
 import Link from 'next/link';
 import { UserCircleIcon } from '@heroicons/react/24/solid';
 import { useAuth } from '../context/AuthProvider';
@@ -11,6 +12,6 @@ export function HomeProfileLink() {
 		>
 			<UserCircleIcon aria-hidden className='w-5 h-5' />
 			<span>個人資料</span>
-		</Link>
+		<LinkPending /></Link>
 	) : null;
 }

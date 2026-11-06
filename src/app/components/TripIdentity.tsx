@@ -1,4 +1,6 @@
 'use client';
+import { OperationFeedback } from '@/app/components/OperationFeedback';
+
 import { useContext, useId, useRef, useState } from 'react';
 import { SingleTripContext } from '@/app/context/SingleTripProvider';
 import { useMember } from '@/app/context/MemberProvider';
@@ -32,9 +34,9 @@ export function TripIdentity() {
 		try {
 			await operation();
 			if (departingPrivateTrip) context.revoke(new MyError('FORBIDDEN'));
-			setOpen(false); setLeaving(false);
 			try { await context.synchronize(); }
 			catch { setSaved(true); setError('已儲存，資料更新失敗，請重試。'); }
+			setOpen(false); setLeaving(false);
 		} catch (cause) {
 			const failure = cause instanceof Error ? cause : new Error('旅程身分更新失敗。');
 			context.revoke(failure);
@@ -82,7 +84,7 @@ export function TripIdentity() {
 				</fieldset>}
 				{error && <p role='alert' className='text-red-700'>{error}</p>}
 				{leaving && error && context.trip.data?.private && <button disabled={busy} className='underline' onClick={() => { setLeaving(false); context.setSettingsOpen(true); }}>前往隱私設定</button>}
-				<div className='flex gap-3'><button className={button} disabled={busy || member.pending > 0} onClick={() => leaving ? void run(() => member.unbind(context.tripId)) : submit()}>{busy ? '處理中...' : leaving ? '確認離開' : '確認'}</button><button disabled={busy} onClick={() => { setOpen(false); setLeaving(false); }}>取消</button></div>
+				<div className='flex gap-3'><button className={button} disabled={busy || member.pending > 0} onClick={() => leaving ? void run(() => member.unbind(context.tripId)) : submit()}><OperationFeedback pending={busy}>{busy ? '處理中...' : leaving ? '確認離開' : '確認'}</OperationFeedback></button><button disabled={busy} onClick={() => { setOpen(false); setLeaving(false); }}>取消</button></div>
 			</>}
 		</ModalDialog>
 	</section>;

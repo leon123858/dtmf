@@ -5,11 +5,11 @@ import { mergeHistory } from '../lib/storage/trip';
 import { useEffect, useState } from 'react';
 import { GetTripListFromStorage, TripHistoryItem } from '../lib/storage/trip';
 import { Header } from '@/app/components/SimpleHeader';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { LinkPending } from '@/app/components/LinkPending';
 
 export default function HistoryPage() {
 	const [history, setHistory] = useState<TripHistoryItem[]>([]);
-	const router = useRouter();
 	const member = useMember();
 	const [filter, setFilter] = useState('全部');
 	const entries = mergeHistory(history, member.user?.subscribedTrips || []).filter(item => filter === '全部' || (filter === '本機' ? item.local : item.saved));
@@ -35,23 +35,23 @@ export default function HistoryPage() {
 					{entries.length === 0 ? (
 						<p className='text-gray-600'>
 							目前沒有瀏覽歷史紀錄。
-							<button
-								onClick={() => router.push('/')}
+							<Link
+								href='/'
 								className='block text-blue-600 hover:underline'
 							>
-								回首頁
-							</button>
+								回首頁<LinkPending />
+							</Link>
 						</p>
 					) : (
 						<ul className='bg-white shadow rounded-lg divide-y divide-gray-200'>
 							{entries.map((item) => (
 								<li key={item.id} className='p-4 hover:bg-gray-50'>
-									<button
-										onClick={() => router.push(`/trip/${item.id}`)}
+									<Link
+										href={`/trip/${item.id}`}
 										className='block text-blue-600 hover:underline'
 									>
-										{item.name}
-									</button>
+										{item.name}<LinkPending />
+									</Link>
 									<p className='text-sm text-gray-500 mt-1'>
 										{[item.local && '本機', item.saved && '收藏'].filter(Boolean).join('・')} · 瀏覽時間: {new Date(item.timestamp).toLocaleString()}
 									</p>
