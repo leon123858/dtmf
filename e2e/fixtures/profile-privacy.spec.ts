@@ -189,10 +189,36 @@ test('binding conflicts preserve the dialog; clearing assignment preserves membe
 	expect(operations(state, 'TouchSubscribedTrip')).toHaveLength(1);
 });
 
+test('address editor fits a keyboard viewport and restores focus on cancellation', async ({ page }) => {
+ await page.setViewportSize({ width: 390, height: 844 });
+ await fixture(page, { joined: true, addressId: aliceId });
+ await members(page);
+ const trigger = page.getByRole('button', { name: '名稱設定', exact: true }).first();
+ await trigger.click();
+ const dialog = page.getByRole('dialog', { name: '名稱設定', exact: true });
+ await expect(page.getByLabel('設定新旅程暱稱')).toBeFocused();
+ await page.evaluate(() => {
+  Object.defineProperty(window.visualViewport!, 'height', { configurable: true, value: 360 });
+  Object.defineProperty(window.visualViewport!, 'offsetTop', { configurable: true, value: 40 });
+  window.visualViewport!.dispatchEvent(new Event('resize'));
+  window.visualViewport!.dispatchEvent(new Event('scroll'));
+ });
+ await expect.poll(async () => {
+  const box = (await dialog.boundingBox())!;
+  return box.y >= 40 && box.y + box.height <= 400;
+ }).toBe(true);
+ await dialog.getByRole('button', { name: '取消', exact: true }).click();
+ await expect(dialog).toHaveCount(0);
+ await expect(trigger).toBeFocused();
+ await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('');
+});
+
 test('nickname settings leave raw nickname untouched when only the switch changes', async ({ page }) => {
 	const state = await fixture(page, { joined: true, addressId: aliceId });
 	await members(page);
 	await page.getByRole('button', { name: '名稱設定', exact: true }).first().click();
+	await expect(page.getByRole('dialog', { name: '名稱設定', exact: true })).toBeVisible();
+	await expect(page.getByLabel('設定新旅程暱稱')).toBeFocused();
 	await expect(page.getByLabel('設定新旅程暱稱')).toHaveValue('');
 	await page.getByLabel('固定使用旅程暱稱').check();
 	await page.getByRole('button', { name: '儲存', exact: true }).click();
