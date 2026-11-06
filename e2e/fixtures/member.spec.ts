@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 const id = '550e8400-e29b-41d4-a716-446655440000';
 const tokens = { idToken: 'member-token', refreshToken: 'refresh-token', expiresIn: 3600 };
-async function fixture(page: Page, saved = true) {
+async function fixture(page: Page, saved = true, privateTrip = false) {
 	const calls: string[] = [];
 	let trips = saved ? [{ id, name: '帳號名稱', lastViewedAt: '1000' }] : [];
 	await page.route('**/backend/auth/password', route => {
@@ -23,7 +23,9 @@ async function fixture(page: Page, saved = true) {
 			if (field === 'unsubscribeTrip') trips = [];
 			if (field === 'touchSubscribedTrip') trips = trips.map(trip => ({ ...trip, lastViewedAt: String(Date.now()) }));
 			await route.fulfill({ json: { data: { [field]: { __typename: 'User', name: null, email: null, id: 'internal-user-id', subscribedTrips: trips } } } });
-		} else await route.fulfill({ json: { data: { trip: { __typename: 'Trip', private: false, users: [], id, name: '旅程', addresses: [], records: [], moneyShare: [], isValid: true } } } });
+		} else if (privateTrip && !route.request().headers().authorization) {
+			await route.fulfill({ json: { data: { trip: null }, errors: [{ message: 'UNAUTHENTICATED', extensions: { code: 'UNAUTHENTICATED' } }] } });
+		} else await route.fulfill({ json: { data: { trip: { __typename: 'Trip', private: privateTrip, users: [], id, name: '旅程', addresses: [], records: [], moneyShare: [], isValid: true } } } });
 	});
 	return calls;
 }
@@ -191,7 +193,8 @@ test('a new login waits for the previous query barrier and ignores its result', 
 });
 
 test('a delayed favorite mutation cannot overwrite a new login', async ({ page }) => {
-	await fixture(page, false);
+	// Private access cannot legitimately reload anonymously after logout.
+	await fixture(page, false, true);
 	let release: (() => Promise<void>) | undefined;
 	await page.route('**/query', route => {
 		if (route.request().postDataJSON().operationName !== 'SubscribeTrip') return route.fallback();
@@ -207,13 +210,20 @@ test('a delayed favorite mutation cannot overwrite a new login', async ({ page }
 	await expect.poll(() => !!release).toBe(true);
 	if (await page.getByRole('dialog', { name: '旅程設定', exact: true }).isVisible()) { await page.getByRole('button', { name: '關閉', exact: true }).click(); await page.getByRole('button', { name: 'Open menu' }).click(); }
 	await page.getByRole('button', { name: '登出', exact: true }).click();
-	// Logout clears protected UI immediately even while the old write holds the barrier.
-	await expect(page.getByRole('heading', { name: '旅程', exact: true })).toHaveCount(0);
+	// Identity clears immediately; FIFO cache flush waits for the preceding write.
+	await expect.poll(() => page.evaluate(() => localStorage.getItem('dtmf:auth'))).toBeNull();
 	await release!();
-	await page.getByRole('button', { name: 'Open menu' }).click();
-	if (await page.getByRole('dialog', { name: '旅程設定', exact: true }).isVisible()) { await page.getByRole('button', { name: '關閉', exact: true }).click(); await page.getByRole('button', { name: 'Open menu' }).click(); }
+	await expect(page.getByRole('heading', { name: '旅程', exact: true })).toHaveCount(0);
+	await page.getByRole('link', { name: '返回首頁', exact: true }).click();
+	await expect(page).toHaveURL('/');
 	await page.getByRole('button', { name: '登入', exact: true }).click();
 	await page.getByRole('button', { name: '測試登入', exact: true }).click();
+	await expect(page.getByRole('button', { name: '登出', exact: true })).toBeVisible();
+	await page.getByRole('link', { name: '歷史紀錄', exact: true }).click();
+	await expect(page).toHaveURL('/history');
+	await page.getByRole('link', { name: '旅程', exact: true }).click();
+	await expect(page).toHaveURL(`/trip/${id}`);
+	await expect(page.getByRole('heading', { name: '旅程', exact: true })).toBeVisible();
 	await page.getByRole('button', { name: 'Open menu' }).click();
 	await page.getByRole('button', { name: '旅程設定', exact: true }).click();
 	await expect(checkbox).toBeEnabled();

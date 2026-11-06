@@ -18,6 +18,8 @@ test('real member login, automatic favorite on creation, reload and logout', asy
 	await page.getByPlaceholder('例如: 2024 日本關西之旅').fill(name);
 	await page.getByRole('button', { name: '開始分帳' }).click();
 	await expect(page).toHaveURL(/\/trip\//);
+	const tripUrl = page.url();
+	await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
 	expect(createActions).toBe(1);
 	expect(subscribeAttempts).toBe(0);
 	await page.getByRole('button', { name: 'Open menu' }).click();
@@ -31,6 +33,8 @@ test('real member login, automatic favorite on creation, reload and logout', asy
 	await page.getByRole('button', { name: '收藏', exact: true }).click();
 	await expect(page.getByRole('link', { name, exact: true })).toBeVisible();
 	await page.getByRole('link', { name, exact: true }).click();
+	await expect(page).toHaveURL(tripUrl);
+	await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
 	await page.getByRole('button', { name: 'Open menu' }).click();
 	await page.getByRole('button', { name: '旅程設定', exact: true }).click();
 	await page.getByRole('switch', { name: '收藏此行程' }).click();
@@ -54,6 +58,7 @@ test('real member binding, nickname and privacy lifecycle', async ({ page, conte
 	await page.getByRole('button', { name: '開始分帳' }).click();
 	await expect(page).toHaveURL(/\/trip\//);
 	const tripUrl = page.url();
+	await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
 	await page.getByRole('button', { name: '成員', exact: true }).click();
 	await page.getByRole('button', { name: '加入旅程', exact: true }).click();
 	const identity = page.getByRole('dialog', { name: '設定我的旅程身分' });

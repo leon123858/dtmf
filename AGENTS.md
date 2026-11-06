@@ -35,7 +35,7 @@ Follow ESLint (`next/core-web-vitals` and `next/typescript`) and keep TypeScript
 
 Run `yarn lint`, `yarn typecheck`, `yarn build`, `yarn test:node`, and `yarn test:e2e` before submitting changes. Install Chromium once with `yarn playwright install chromium`.
 
-- `yarn test:e2e`: run all E2E specs once, headlessly, with one worker and no retries.
+- `yarn test:e2e`: run all E2E specs once, headlessly, with one worker and no retries. Local test/assertion timeouts are 120/15 seconds; CI allows 180/30 seconds. Wait for destination URLs and visible page content before operating on shared navigation. Layout measurements allow up to 1 CSS pixel of rounding error; request counts and session-isolation assertions remain exact.
 - `yarn test:e2e:headed`: run the same specs in a visible browser with a 200ms delay between browser operations, without Inspector. `yarn test:e2e --headed` also works.
 - `yarn test:e2e:check`: verify Playwright/Chromium, frontend startup, and backend health without running specs. Add `--headed` to verify the display too.
 - `yarn test:node`: run browser preflight, runner orchestration, trip action, authentication store, and Apollo cache/synchronization tests with Node's built-in test runner.
