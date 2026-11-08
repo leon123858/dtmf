@@ -30,7 +30,7 @@ export function TripFavorite({
 						收藏此行程
 					</label>
 					<p id='favorite-description' className='mt-1 text-sm text-slate-500'>
-						加入帳號收藏；收藏不代表加入旅程或取得私有旅程權限。
+						登入後開啟行程會自動收藏；取消後，下次開啟會再次收藏。收藏不代表加入旅程或取得私有旅程權限。
 					</p>
 				</div>
 				<OperationFeedback pending={saving}><SettingSwitch

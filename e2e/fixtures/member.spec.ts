@@ -197,7 +197,7 @@ test('a delayed favorite mutation cannot overwrite a new login', async ({ page }
 	await fixture(page, false, true);
 	let release: (() => Promise<void>) | undefined;
 	await page.route('**/query', route => {
-		if (route.request().postDataJSON().operationName !== 'SubscribeTrip') return route.fallback();
+		if (release || route.request().postDataJSON().operationName !== 'SubscribeTrip') return route.fallback();
 		release = () => route.fulfill({ json: { data: { subscribeTrip: { __typename: 'User', name: null, email: null, id: 'old-user', subscribedTrips: [{ id, name: '過期收藏', lastViewedAt: '1000' }] } } } });
 	});
 	await login(page);
@@ -205,8 +205,7 @@ test('a delayed favorite mutation cannot overwrite a new login', async ({ page }
 	await page.getByRole('button', { name: 'Open menu' }).click();
 	await page.getByRole('button', { name: '旅程設定', exact: true }).click();
 	const checkbox = page.getByRole('switch', { name: '收藏此行程' });
-	await expect(checkbox).toBeEnabled();
-	await checkbox.click();
+	await expect(checkbox).toBeDisabled();
 	await expect.poll(() => !!release).toBe(true);
 	if (await page.getByRole('dialog', { name: '旅程設定', exact: true }).isVisible()) { await page.getByRole('button', { name: '關閉', exact: true }).click(); await page.getByRole('button', { name: 'Open menu' }).click(); }
 	await page.getByRole('button', { name: '登出', exact: true }).click();
@@ -227,7 +226,7 @@ test('a delayed favorite mutation cannot overwrite a new login', async ({ page }
 	await page.getByRole('button', { name: 'Open menu' }).click();
 	await page.getByRole('button', { name: '旅程設定', exact: true }).click();
 	await expect(checkbox).toBeEnabled();
-	await expect(checkbox).not.toBeChecked();
+	await expect(checkbox).toBeChecked();
 });
 
 test('touches from consecutive trip entries serialize and retain the complete favorites list', async ({ page }) => {
@@ -272,7 +271,6 @@ test('subscribe change synchronizes history without reloading CurrentUser', asyn
 	const checkbox = page.getByRole('switch', { name: '收藏此行程' });
 	await expect(checkbox).toBeEnabled();
 	const loads = calls.filter(call => call === 'CurrentUser').length;
-	await checkbox.click();
 	await expect(checkbox).toBeChecked();
 	await expect(checkbox).toBeEnabled();
 	if (await page.getByRole('dialog', { name: '旅程設定', exact: true }).isVisible()) { await page.getByRole('button', { name: '關閉', exact: true }).click(); await page.getByRole('button', { name: 'Open menu' }).click(); }
@@ -316,4 +314,28 @@ test('profile navigation depends on login even when member initialization fails'
  await expect(menu.getByText('已登入', { exact: true })).toHaveCount(0);
  await menu.getByRole('link', { name: '個人資料', exact: true }).click();
  await expect(page).toHaveURL(/\/profile$/);
+});
+
+
+test('entry subscribes once and cancellation lasts until reload', async ({ page }) => {
+ const calls = await fixture(page, false);
+ await login(page);
+ await page.goto(`/trip/${id}`);
+ await expect.poll(() => calls.filter(call => call === 'SubscribeTrip').length).toBe(1);
+ await page.getByRole('button', { name: 'Open menu' }).click();
+ await page.getByRole('button', { name: '旅程設定', exact: true }).click();
+ const checkbox = page.getByRole('switch', { name: '收藏此行程' });
+ await expect(checkbox).toBeChecked();
+ await expect(checkbox).toBeEnabled();
+ await checkbox.click();
+ await expect(checkbox).not.toBeChecked();
+ await expect(checkbox).toBeEnabled();
+ await page.getByRole('button', { name: '關閉', exact: true }).click();
+ await page.getByRole('button', { name: 'Open menu' }).click();
+ await page.getByRole('button', { name: 'Close menu' }).click();
+ for (const tab of ['成員', '分帳', '帳目']) await page.getByRole('button', { name: tab, exact: true }).click();
+ expect(calls.filter(call => call === 'SubscribeTrip')).toHaveLength(1);
+ expect(calls.filter(call => call === 'TouchSubscribedTrip')).toHaveLength(0);
+ await page.reload();
+ await expect.poll(() => calls.filter(call => call === 'SubscribeTrip').length).toBe(2);
 });

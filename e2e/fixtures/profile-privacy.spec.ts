@@ -8,6 +8,7 @@ const tokens = { idToken: 'profile-token', refreshToken: 'profile-refresh', expi
 type BusinessFailure = { code?: string; message: string };
 async function fixture(page: Page, options: { anonymous?: boolean; joined?: boolean; addressId?: string; private?: boolean; saved?: boolean; records?: boolean } = {}) {
 	const state = {
+		saved: options.saved ?? false,
 		name: '小明', email: 'ming@example.test' as string | null,
 		joined: options.joined ?? false, addressId: options.addressId ?? null as string | null,
 		private: options.private ?? false, lastMember: true,
@@ -39,7 +40,9 @@ async function fixture(page: Page, options: { anonymous?: boolean; joined?: bool
 		if (failure) return fail(failure);
 		const result = (field: string, value: unknown) => route.fulfill({ json: { data: { [field]: value } } });
 		const user = { __typename: 'User', id: 'profile-user', name: state.name, email: state.email,
-			subscribedTrips: options.saved ? [{ __typename: 'SubscribedTrip', id: tripId, name: '身分測試旅程', lastViewedAt: '1000' }] : [] };
+			subscribedTrips: state.saved ? [{ __typename: 'SubscribedTrip', id: tripId, name: '身分測試旅程', lastViewedAt: '1000' }] : [] };
+		if (operation === 'SubscribeTrip') { state.saved = true; return result('subscribeTrip', { ...user, subscribedTrips: [{ __typename: 'SubscribedTrip', id: tripId, name: '身分測試旅程', lastViewedAt: '1000' }] }); }
+		if (operation === 'UnsubscribeTrip') { state.saved = false; return result('unsubscribeTrip', { ...user, subscribedTrips: [] }); }
 		if (operation === 'CurrentUser') {
 			if (state.failProfileReads-- > 0) return fail({ message: 'profile offline' });
 			return result('me', user);
@@ -156,7 +159,9 @@ for (const mode of ['existing', 'new', 'none']) test(`join using ${mode} without
 	expect(operations(state, 'GetTrip')).toHaveLength(reads + 1);
 	expect(operations(state, 'CurrentBinding')).toHaveLength(0);
 	await expect.poll(() => operations(state, 'CurrentUser').length).toBe(2);
-	expect(state.calls.filter(call => /SubscribeTrip|UnsubscribeTrip|TouchSubscribedTrip/.test(call.operation))).toHaveLength(0);
+	expect(operations(state, 'SubscribeTrip')).toHaveLength(1);
+	expect(operations(state, 'UnsubscribeTrip')).toHaveLength(0);
+	expect(operations(state, 'TouchSubscribedTrip')).toHaveLength(0);
 });
 
 test('binding conflicts preserve the dialog; clearing assignment preserves membership and leaving preserves favorite', async ({ page }) => {
@@ -358,16 +363,14 @@ test('profile name changes refresh bound names and historical records on returni
 for (const operation of ['UpdateAddress', 'SubscribeTrip']) test(`access rejected by ${operation} immediately hides trip data and stops polling`, async ({ page }) => {
 	await page.clock.install();
 	const state = await fixture(page, { joined: true, addressId: aliceId, private: true });
-	await members(page);
+	if (operation === 'SubscribeTrip') state.failures[operation] = { code: 'FORBIDDEN', message: 'FORBIDDEN' };
+	if (operation === 'SubscribeTrip') await page.goto(`/trip/${tripId}`);
+	else await members(page);
 	state.failures[operation] = { code: 'FORBIDDEN', message: 'FORBIDDEN' };
 	if (operation === 'UpdateAddress') {
 		await page.getByRole('button', { name: '名稱設定', exact: true }).first().click();
 		await page.getByLabel('設定新旅程暱稱').fill('權限測試');
 		await page.getByRole('button', { name: '儲存', exact: true }).click();
-	} else {
-		await page.getByRole('button', { name: 'Open menu' }).click();
-		await page.getByRole('button', { name: '旅程設定', exact: true }).click();
-		await page.getByRole('switch', { name: '收藏此行程' }).click();
 	}
 	await expect(page.getByText('你沒有此旅程的存取或操作權限。')).toBeVisible();
 	await expect(page.getByRole('heading', { name: '身分測試旅程', exact: true })).toHaveCount(0);
