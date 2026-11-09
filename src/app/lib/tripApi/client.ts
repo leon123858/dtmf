@@ -22,12 +22,12 @@ import {
 	UPDATE_ADDRESS,
 	DELETE_ADDRESS,
 } from './mutation';
-import { TripApiError, type TripService } from './public';
+import { TripApiError } from './public';
 import type * as Input from './public';
 import type * as Graph from './types';
 
 /** Request and cache coordination stays behind this domain facade. */
-export class TripApi implements TripService {
+export class TripClient {
 	constructor(
 		private readonly client: ApolloClient<object>,
 		private readonly session: () => string | number = () => 0,

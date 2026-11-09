@@ -1,5 +1,5 @@
 import { MyError } from '../errors';
-import type { Trip, EditTripInput, NewTripInput, NewRecordInput, EditRecordInput, NewAddressInput } from './types';
+import type { Trip, EditTripInput, NewRecordInput, EditRecordInput, NewAddressInput } from './types';
 
 export interface UpdateTripInput { tripId: string; input: EditTripInput }
 export interface CreateRecordInput { tripId: string; input: NewRecordInput }
@@ -19,18 +19,17 @@ export class TripApiError extends MyError {
 	}
 }
 
-/** Domain boundary consumed by providers, hooks and server actions. */
-export interface TripService {
-	flush(tripId?: string, haveHistory?: boolean): Promise<void>;
-	forceRefresh(input: Pick<RefreshTripInput, 'tripId' | 'haveHistory'>): Promise<RefreshTripResult>;
-	refresh(input: RefreshTripInput): Promise<RefreshTripResult>;
-	getSnapshot(tripId: string, haveHistory: boolean): Trip | null | undefined;
-	subscribe(tripId: string, listener: () => void): () => void;
-	createTrip(input: NewTripInput): Promise<{ id: string }>;
-	updateTrip(input: UpdateTripInput): Promise<void>;
-	createRecord(input: CreateRecordInput): Promise<void>;
-	updateRecord(input: UpdateRecordInput): Promise<void>;
-	createAddress(input: CreateAddressInput): Promise<void>;
-	updateAddress(input: UpdateAddressInput): Promise<void>;
-	deleteAddress(input: DeleteAddressInput): Promise<void>;
+/** A parameter-bound, cache-only external store and operation facade. */
+export interface TripApi {
+ subscribe(listener: () => void): () => void;
+ getSnapshot(): Trip | null | undefined;
+ flush(): Promise<void>;
+ refresh(options?: { source?: 'foreground' | 'background' }): Promise<RefreshTripResult>;
+ forceRefresh(): Promise<RefreshTripResult>;
+ updateTrip(input: Omit<UpdateTripInput, 'tripId'>): Promise<void>;
+ createRecord(input: Omit<CreateRecordInput, 'tripId'>): Promise<void>;
+ updateRecord(input: Omit<UpdateRecordInput, 'tripId'>): Promise<void>;
+ createAddress(input: Omit<CreateAddressInput, 'tripId'>): Promise<void>;
+ updateAddress(input: Omit<UpdateAddressInput, 'tripId'>): Promise<void>;
+ deleteAddress(input: Omit<DeleteAddressInput, 'tripId'>): Promise<void>;
 }

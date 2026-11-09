@@ -24,7 +24,7 @@ function load(name) {
   return exports;
 }
 const { createTripCache } = load('cache');
-const { TripApi } = load('client');
+const { TripClient: TripApi } = load('client');
 const { domainCacheFor, DomainCache } = load('../domainCache');
 const { GET_TRIP } = load('query');
 const { patchTrip, upsertRecord, addAddress, patchAddress, removeAddress, editTrip } = load('commands');
@@ -203,7 +203,7 @@ test('snapshot writes preserve query typenames and server statistics in both mod
 
 
 test('trip API owns mutation writes and cache-only observations', async () => {
-  const { TripApi } = load('client');
+  const { TripClient: TripApi } = load('client');
   const calls = [];
   const cache = seeded();
   const client = new ApolloClient({ cache, link: new ApolloLink(operation => new Observable(observer => {
@@ -230,7 +230,7 @@ test('trip API owns mutation writes and cache-only observations', async () => {
 });
 
 test('trip API rejects incomplete results and converts transport errors without writes', async () => {
-  const { TripApi } = load('client');
+  const { TripClient: TripApi } = load('client');
   for (const response of [{ data: { updateTrip: null } }, { errors: [{ message: 'invalid trip' }] }]) {
     const cache = seeded();
     const client = new ApolloClient({ cache, link: new ApolloLink(() => new Observable(observer => { observer.next(response); observer.complete(); })) });
@@ -773,4 +773,31 @@ test('unbound member display keeps each original address name', () => {
  const value = load('recordInput').normalizeTrip({ addresses: [{ ...alice, name: 'List name' }], records: [record()], moneyShare: [] });
  assert.equal(value.addresses[0].name, 'List name');
  assert.equal(value.records[0].prePayAddress.name, 'Alice');
+});
+
+test('bound store reads fallback without requests and rejects operations after identity changes', async () => {
+ const { createTripStore } = load('store');
+ let identity = 1;
+ let calls = 0;
+ let listener;
+ const service = {
+  getSnapshot: (id, history) => history ? null : undefined,
+  subscribe: (id, fn) => { assert.equal(id, 'bound'); listener = fn; return () => { listener = undefined; }; },
+  refresh: async input => { assert.equal(input.tripId, 'bound'); assert.equal(input.haveHistory, false); calls++; return 'refreshed'; },
+ };
+ const store = createTripStore(service, 'bound', false, () => identity);
+ const subscribe = store.subscribe;
+ const stop = subscribe(() => {});
+ assert.ok(listener);
+ assert.equal(store.getSnapshot(), null);
+ assert.equal(calls, 0);
+ assert.equal(store.subscribe, subscribe);
+ await store.refresh();
+ assert.equal(calls, 1);
+ stop();
+ assert.equal(listener, undefined);
+ identity++;
+ assert.equal(store.getSnapshot(), undefined);
+ await assert.rejects(store.refresh(), error => error.code === 'session-changed');
+ assert.equal(calls, 1);
 });

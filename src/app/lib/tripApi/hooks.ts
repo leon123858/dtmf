@@ -2,7 +2,7 @@
 
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { SingleTripContext, type TripState } from '@/app/context/SingleTripProvider';
-import { useDomainApis } from '../ApiProvider';
+import { useTripApi } from '@/app/context/TripProvider';
 import type * as T from './public';
 
 export function useTrip(tripId: string, haveHistory = false): TripState {
@@ -40,26 +40,26 @@ function useOperation<Input>(operation: (input: Input) => Promise<void>) {
 	return { execute, ...state };
 }
 export function useUpdateTrip() {
-	const { trip } = useDomainApis();
-	return useOperation(useCallback((input: T.UpdateTripInput) => trip.updateTrip(input), [trip]));
+	const { createTrip } = useTripApi();
+	return useOperation(useCallback((input: T.UpdateTripInput) => createTrip(input.tripId, { haveHistory: false }).updateTrip(input), [createTrip]));
 }
 export function useCreateRecord(tripId: string) {
-	const { trip } = useDomainApis();
-	return useOperation(useCallback((input: Omit<T.CreateRecordInput, 'tripId'>) => trip.createRecord({ ...input, tripId }), [trip, tripId]));
+	const { createTrip } = useTripApi();
+	return useOperation(useCallback((input: Omit<T.CreateRecordInput, 'tripId'>) => createTrip(tripId, { haveHistory: false }).createRecord(input), [createTrip, tripId]));
 }
 export function useUpdateRecord(tripId: string) {
-	const { trip } = useDomainApis();
-	return useOperation(useCallback((input: Omit<T.UpdateRecordInput, 'tripId'>) => trip.updateRecord({ ...input, tripId }), [trip, tripId]));
+	const { createTrip } = useTripApi();
+	return useOperation(useCallback((input: Omit<T.UpdateRecordInput, 'tripId'>) => createTrip(tripId, { haveHistory: false }).updateRecord(input), [createTrip, tripId]));
 }
 export function useCreateAddress(tripId: string) {
-	const { trip } = useDomainApis();
-	return useOperation(useCallback((input: Omit<T.CreateAddressInput, 'tripId'>) => trip.createAddress({ ...input, tripId }), [trip, tripId]));
+	const { createTrip } = useTripApi();
+	return useOperation(useCallback((input: Omit<T.CreateAddressInput, 'tripId'>) => createTrip(tripId, { haveHistory: false }).createAddress(input), [createTrip, tripId]));
 }
 export function useUpdateAddress(tripId: string) {
-	const { trip } = useDomainApis();
-	return useOperation(useCallback((input: Omit<T.UpdateAddressInput, 'tripId'>) => trip.updateAddress({ ...input, tripId }), [trip, tripId]));
+	const { createTrip } = useTripApi();
+	return useOperation(useCallback((input: Omit<T.UpdateAddressInput, 'tripId'>) => createTrip(tripId, { haveHistory: false }).updateAddress(input), [createTrip, tripId]));
 }
 export function useDeleteAddress(tripId: string) {
-	const { trip } = useDomainApis();
-	return useOperation(useCallback((input: Omit<T.DeleteAddressInput, 'tripId'>) => trip.deleteAddress({ ...input, tripId }), [trip, tripId]));
+	const { createTrip } = useTripApi();
+	return useOperation(useCallback((input: Omit<T.DeleteAddressInput, 'tripId'>) => createTrip(tripId, { haveHistory: false }).deleteAddress(input), [createTrip, tripId]));
 }

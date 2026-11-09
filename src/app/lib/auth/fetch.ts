@@ -3,7 +3,6 @@ import { authStore } from './store';
 // Server calls carry explicit request-local headers and never read browser identity.
 export const authenticatedFetch: typeof fetch = async (input, init) => {
 	if (typeof window === 'undefined') return fetch(input, init);
-	authStore.restore();
 	const session = authStore.getSession();
 	const token = await authStore.getValidIdToken();
 	if (session !== authStore.getSession())

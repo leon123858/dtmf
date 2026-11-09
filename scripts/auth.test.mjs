@@ -802,7 +802,7 @@ test('binding writes use the shared client lock and commit only after an active 
  const modules = loadModules();
  const { UserApi } = modules('userApi/client');
  const { userTypePolicies } = modules('userApi/cache');
- const { TripApi } = modules('tripApi/client');
+ const { TripClient: TripApi } = modules('tripApi/client');
  const { tripTypePolicies } = modules('tripApi/cache');
  const calls = [];
  const responses = [];
@@ -841,7 +841,7 @@ test('trip access identity changes on login completion but stays stable on token
 function domainNetwork() {
  const { ApolloClient, ApolloLink, InMemoryCache, Observable } = require('@apollo/client');
  const modules = loadModules();
- const { TripApi } = modules('tripApi/client');
+ const { TripClient: TripApi } = modules('tripApi/client');
  const { UserApi } = modules('userApi/client');
  const { domainCacheFor } = modules('domainCache');
  const { tripTypePolicies } = modules('tripApi/cache');
